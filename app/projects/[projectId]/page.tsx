@@ -27,12 +27,18 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   const sessions = await getSessions(decodedId)
 
-  // Fetch sessions for each worktree
+  // Fetch sessions for each worktree in parallel
   const worktreeSessions: Record<string, SessionInfo[]> = {}
-  for (const wt of project.worktrees) {
-    const wtId = buildWorktreeProjectId(decodedId, wt.name)
-    worktreeSessions[wt.name] = await getSessions(wtId)
-  }
+  await Promise.allSettled(
+    project.worktrees.map(async (wt) => {
+      try {
+        const wtId = buildWorktreeProjectId(decodedId, wt.name)
+        worktreeSessions[wt.name] = await getSessions(wtId)
+      } catch {
+        worktreeSessions[wt.name] = []
+      }
+    })
+  )
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">

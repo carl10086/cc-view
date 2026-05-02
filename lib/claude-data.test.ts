@@ -185,4 +185,64 @@ describe("buildWorktreeProjectId", () => {
     const result = buildWorktreeProjectId("project-a", "fix-bug")
     expect(result).toBe("project-a--claude-worktrees-fix-bug")
   })
+
+  it("should throw for mainId with ..", () => {
+    expect(() => buildWorktreeProjectId("../../../etc/passwd", "wt")).toThrow()
+  })
+
+  it("should throw for mainId with /", () => {
+    expect(() => buildWorktreeProjectId("/absolute/path", "wt")).toThrow()
+  })
+
+  it("should throw for mainId with \\", () => {
+    expect(() => buildWorktreeProjectId("C:\\Windows", "wt")).toThrow()
+  })
+
+  it("should throw for worktreeName with ..", () => {
+    expect(() => buildWorktreeProjectId("project", "../..")).toThrow()
+  })
+
+  it("should throw for worktreeName with /", () => {
+    expect(() => buildWorktreeProjectId("project", "a/b")).toThrow()
+  })
+
+  it("should throw for worktreeName with \\", () => {
+    expect(() => buildWorktreeProjectId("project", "a\\b")).toThrow()
+  })
+
+  it("should throw for empty mainId", () => {
+    expect(() => buildWorktreeProjectId("", "wt")).toThrow()
+  })
+
+  it("should throw for empty worktreeName", () => {
+    expect(() => buildWorktreeProjectId("project", "")).toThrow()
+  })
+
+  it("should throw when mainId contains WORKTREE_MARKER", () => {
+    expect(() =>
+      buildWorktreeProjectId(
+        "project--claude-worktrees-injected",
+        "wt"
+      )
+    ).toThrow()
+  })
+
+  it("should throw when worktreeName contains WORKTREE_MARKER", () => {
+    expect(() =>
+      buildWorktreeProjectId(
+        "project",
+        "wt--claude-worktrees-injected"
+      )
+    ).toThrow()
+  })
+
+  it("should throw for overly long mainId", () => {
+    const longId = "a".repeat(300)
+    expect(() => buildWorktreeProjectId(longId, "wt")).toThrow()
+  })
+
+  it("should throw for overly long worktreeName", () => {
+    const longName = "a".repeat(300)
+    expect(() => buildWorktreeProjectId("project", longName)).toThrow()
+  })
 })

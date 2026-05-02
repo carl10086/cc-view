@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { Card } from "@/components/ui/card"
 // import { Button } from "@/components/ui/button"
 import { SessionSidebar } from "./session-sidebar"
@@ -24,9 +24,10 @@ export function SessionBrowser({ projectId, sessions, worktrees, worktreeSession
     ? buildWorktreeProjectId(projectId, activeWorktree)
     : projectId
 
-  const currentSessions = activeWorktree
-    ? (worktreeSessions[activeWorktree] ?? [])
-    : sessions
+  const currentSessions = useMemo(
+    () => (activeWorktree ? (worktreeSessions[activeWorktree] ?? []) : sessions),
+    [activeWorktree, worktreeSessions, sessions]
+  )
 
   const [selectedId, setSelectedId] = useState<string | null>(
     currentSessions[0]?.id ?? null
@@ -38,11 +39,22 @@ export function SessionBrowser({ projectId, sessions, worktrees, worktreeSession
   const [hasMore, setHasMore] = useState(false)
   const [total, setTotal] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const requestIdRef = useRef(0)
 
   // Reset selectedId when worktree changes to avoid stale selection
   useEffect(() => {
     setSelectedId(currentSessions[0]?.id ?? null)
-  }, [effectiveProjectId, currentSessions])
+  }, [effectiveProjectId])
+
+  // Defensive: reset selectedId if it no longer exists in currentSessions
+  useEffect(() => {
+    setSelectedId((prev) => {
+      if (prev && currentSessions.some((s) => s.id === prev)) {
+        return prev
+      }
+      return currentSessions[0]?.id ?? null
+    })
+  }, [currentSessions])
 
   // Reset and load first page when session changes
   useEffect(() => {
@@ -87,15 +99,22 @@ export function SessionBrowser({ projectId, sessions, worktrees, worktreeSession
 
   async function loadMore() {
     if (!selectedId || loadingMore) return
+    const targetProjectId = effectiveProjectId
+    const targetSessionId = selectedId
+    const myRequestId = ++requestIdRef.current
     setLoadingMore(true)
     try {
       const res = await fetch(
-        `/api/projects/${encodeURIComponent(effectiveProjectId)}/sessions/${encodeURIComponent(selectedId)}?offset=${messages.length}&limit=${PAGE_SIZE}`
+        `/api/projects/${encodeURIComponent(targetProjectId)}/sessions/${encodeURIComponent(targetSessionId)}?offset=${messages.length}&limit=${PAGE_SIZE}`
       )
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`)
       }
       const data = await res.json()
+      // Discard stale results if user switched worktree or session
+      if (requestIdRef.current !== myRequestId) {
+        return
+      }
       setMessages((prev) => [...prev, ...(data.messages || [])])
       setHasMore(data.hasMore || false)
     } catch (err) {
