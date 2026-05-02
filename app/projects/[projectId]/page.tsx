@@ -1,25 +1,37 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft, FolderGit2 } from "lucide-react"
-import { getProjectById } from "@/lib/claude-data"
+import { getProjectById, getSessions } from "@/lib/claude-data"
+import { buildWorktreeProjectId } from "@/lib/worktree"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { pluralize } from "@/lib/utils"
 import { formatDistanceToNow } from "date-fns"
+import { SessionBrowser } from "@/components/session-browser"
+import type { SessionInfo } from "@/types/claude"
 
 interface ProjectPageProps {
-  params: {
+  params: Promise<{
     projectId: string
-  }
+  }>
 }
 
 export default async function ProjectPage({ params }: ProjectPageProps) {
-  const { projectId } = params
+  const { projectId } = await params
   const decodedId = decodeURIComponent(projectId)
   const project = await getProjectById(decodedId)
 
   if (!project) {
     notFound()
+  }
+
+  const sessions = await getSessions(decodedId)
+
+  // Fetch sessions for each worktree
+  const worktreeSessions: Record<string, SessionInfo[]> = {}
+  for (const wt of project.worktrees) {
+    const wtId = buildWorktreeProjectId(decodedId, wt.name)
+    worktreeSessions[wt.name] = await getSessions(wtId)
   }
 
   return (
@@ -32,7 +44,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         Back to Projects
       </Link>
 
-      <Card>
+      <Card className="mb-6">
         <CardHeader>
           <div className="flex items-center gap-3">
             <FolderGit2 className="h-6 w-6 text-neutral-500" />
@@ -59,6 +71,13 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           </div>
         </CardContent>
       </Card>
+
+      <SessionBrowser
+        projectId={decodedId}
+        sessions={sessions}
+        worktrees={project.worktrees}
+        worktreeSessions={worktreeSessions}
+      />
     </div>
   )
 }

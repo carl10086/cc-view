@@ -20,9 +20,16 @@ export function ProjectCard({ project }: ProjectCardProps) {
               <FolderGit2 className="h-5 w-5 text-neutral-500" />
               <CardTitle className="text-lg">{project.name}</CardTitle>
             </div>
-            <Badge variant="secondary">
-              {pluralize(project.sessionCount, "session")}
-            </Badge>
+            <div className="flex gap-2">
+              {project.worktrees.length > 0 && (
+                <Badge variant="outline">
+                  {pluralize(project.worktrees.length, "worktree")}
+                </Badge>
+              )}
+              <Badge variant="secondary">
+                {pluralize(project.sessionCount, "session")}
+              </Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
