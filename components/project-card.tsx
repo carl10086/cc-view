@@ -1,10 +1,9 @@
-"use client"
-
 import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
 import { FolderGit2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { pluralize } from "@/lib/utils"
 import type { ProjectInfo } from "@/types/claude"
 
 interface ProjectCardProps {
@@ -22,7 +21,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
               <CardTitle className="text-lg">{project.name}</CardTitle>
             </div>
             <Badge variant="secondary">
-              {project.sessionCount} session{project.sessionCount !== 1 ? "s" : ""}
+              {pluralize(project.sessionCount, "session")}
             </Badge>
           </div>
         </CardHeader>

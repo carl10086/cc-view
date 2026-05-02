@@ -14,16 +14,12 @@ export default function Error({
   }, [error])
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8"
-    >
-      <div className="text-center"
-      >
-        <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100"
-        >
+    <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
           Something went wrong
         </h2>
-        <p className="mt-2 text-neutral-600 dark:text-neutral-400"
-        >
+        <p className="mt-2 text-neutral-600 dark:text-neutral-400">
           Unable to load Claude Code data. Make sure ~/.claude directory exists.
         </p>
         {process.env.NODE_ENV === "development" && (

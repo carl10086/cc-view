@@ -5,10 +5,12 @@ import type { ProjectInfo } from "@/types/claude"
 
 const PROJECTS_DIR = path.join(os.homedir(), ".claude", "projects")
 
+function isValidProjectId(id: string): boolean {
+  return !id.includes("..") && !path.isAbsolute(id)
+}
+
 function parseProjectName(dirName: string): string {
-  // Remove home directory prefix like -Users-carlyu-
-  const withoutPrefix = dirName.replace(/^-Users-[^-]+-/, "")
-  // Convert dashes to path separators and get basename
+  const withoutPrefix = dirName.replace(/^-Users-[^/]+-/, "")
   const pathLike = withoutPrefix.replace(/-/g, "/")
   return path.basename(pathLike) || dirName
 }
@@ -16,13 +18,7 @@ function parseProjectName(dirName: string): string {
 async function countSessions(projectPath: string): Promise<number> {
   try {
     const entries = await fs.readdir(projectPath)
-    let count = 0
-    for (const entry of entries) {
-      if (entry.endsWith(".jsonl")) {
-        count++
-      }
-    }
-    return count
+    return entries.filter((entry) => entry.endsWith(".jsonl")).length
   } catch {
     return 0
   }
@@ -31,39 +27,48 @@ async function countSessions(projectPath: string): Promise<number> {
 export async function getProjects(): Promise<ProjectInfo[]> {
   try {
     const entries = await fs.readdir(PROJECTS_DIR, { withFileTypes: true })
-    const projects: ProjectInfo[] = []
 
-    for (const entry of entries) {
-      if (!entry.isDirectory() || entry.name.startsWith(".")) {
-        continue
-      }
+    const projectPromises = entries
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+      .map(async (entry) => {
+        const projectPath = path.join(PROJECTS_DIR, entry.name)
 
-      const projectPath = path.join(PROJECTS_DIR, entry.name)
+        try {
+          const [stat, sessionCount] = await Promise.all([
+            fs.stat(projectPath),
+            countSessions(projectPath),
+          ])
 
-      try {
-        const stat = await fs.stat(projectPath)
-        const sessionCount = await countSessions(projectPath)
+          return {
+            id: entry.name,
+            name: parseProjectName(entry.name),
+            sessionCount,
+            lastModified: stat.mtime,
+          } satisfies ProjectInfo
+        } catch {
+          return null
+        }
+      })
 
-        projects.push({
-          id: entry.name,
-          name: parseProjectName(entry.name),
-          path: projectPath,
-          sessionCount,
-          lastModified: stat.mtime,
-        })
-      } catch {
-        // Skip projects that can't be read
-        continue
-      }
-    }
+    const projects = (await Promise.all(projectPromises)).filter(
+      (p): p is ProjectInfo => p !== null
+    )
 
-    return projects.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime())
+    return projects.sort(
+      (a, b) => b.lastModified.getTime() - a.lastModified.getTime()
+    )
   } catch {
     return []
   }
 }
 
-export async function getProjectById(id: string): Promise<ProjectInfo | null> {
+export async function getProjectById(
+  id: string
+): Promise<ProjectInfo | null> {
+  if (!isValidProjectId(id)) {
+    return null
+  }
+
   try {
     const projectPath = path.join(PROJECTS_DIR, id)
     const stat = await fs.stat(projectPath)
@@ -77,7 +82,6 @@ export async function getProjectById(id: string): Promise<ProjectInfo | null> {
     return {
       id,
       name: parseProjectName(id),
-      path: projectPath,
       sessionCount,
       lastModified: stat.mtime,
     }

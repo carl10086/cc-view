@@ -4,6 +4,7 @@ import { ArrowLeft, FolderGit2 } from "lucide-react"
 import { getProjectById } from "@/lib/claude-data"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { pluralize } from "@/lib/utils"
 import { formatDistanceToNow } from "date-fns"
 
 interface ProjectPageProps {
@@ -42,7 +43,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           <div className="flex items-center gap-2">
             <span className="text-sm text-neutral-500">Sessions:</span>
             <Badge variant="secondary">
-              {project.sessionCount} session{project.sessionCount !== 1 ? "s" : ""}
+              {pluralize(project.sessionCount, "session")}
             </Badge>
           </div>
           <div className="flex items-center gap-2">
