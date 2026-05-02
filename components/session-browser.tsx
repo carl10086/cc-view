@@ -114,6 +114,9 @@ export function SessionBrowser({ projectId, sessions, worktrees, worktreeSession
             sessions={currentSessions}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            worktrees={worktrees}
+            activeWorktree={activeWorktree}
+            onWorktreeChange={setActiveWorktree}
           />
         </Card>
       </div>
