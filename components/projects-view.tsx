@@ -4,6 +4,7 @@ import { useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import { filterProjects, sortProjects, parseUrlState } from "@/lib/project-filters"
 import { ProjectList } from "./project-list"
+import { ProjectsToolbar } from "./projects-toolbar"
 import { pluralize } from "@/lib/utils"
 import type { ProjectInfo } from "@/types/claude"
 
@@ -37,6 +38,7 @@ export function ProjectsView({ projects }: ProjectsViewProps) {
           {showAll ? `${totalLabel} found` : `${totalLabel} · ${visible.length} shown`}
         </p>
       </div>
+      <ProjectsToolbar urlState={state} />
       <ProjectList projects={visible} />
     </>
   )
