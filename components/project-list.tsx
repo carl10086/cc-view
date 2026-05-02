@@ -1,3 +1,4 @@
+import { FolderOpen } from "lucide-react"
 import { ProjectCard } from "./project-card"
 import type { ProjectInfo } from "@/types/claude"
 
@@ -9,7 +10,7 @@ export function ProjectList({ projects }: ProjectListProps) {
   if (projects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="mb-4 text-4xl">📁</div>
+        <FolderOpen className="mb-4 h-12 w-12 text-neutral-400" />
         <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
           No projects yet
         </h3>

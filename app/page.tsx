@@ -2,6 +2,7 @@ import Link from "next/link"
 import { FolderGit2, ArrowRight } from "lucide-react"
 import { getProjects } from "@/lib/claude-data"
 import { Card, CardContent } from "@/components/ui/card"
+import { pluralize } from "@/lib/utils"
 
 export default async function HomePage() {
   const projects = await getProjects()
@@ -30,7 +31,7 @@ export default async function HomePage() {
                     Projects
                   </p>
                   <p className="text-sm text-neutral-500">
-                    {projects.length} project{projects.length !== 1 ? "s" : ""} found
+                    {pluralize(projects.length, "project")} found
                   </p>
                 </div>
               </div>

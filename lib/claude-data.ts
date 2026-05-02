@@ -6,7 +6,11 @@ import type { ProjectInfo } from "@/types/claude"
 const PROJECTS_DIR = path.join(os.homedir(), ".claude", "projects")
 
 function isValidProjectId(id: string): boolean {
-  return !id.includes("..") && !path.isAbsolute(id)
+  if (id.includes("..") || path.isAbsolute(id)) {
+    return false
+  }
+  const resolved = path.resolve(PROJECTS_DIR, id)
+  return resolved.startsWith(PROJECTS_DIR + path.sep)
 }
 
 function parseProjectName(dirName: string): string {

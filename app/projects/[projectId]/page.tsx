@@ -8,13 +8,13 @@ import { pluralize } from "@/lib/utils"
 import { formatDistanceToNow } from "date-fns"
 
 interface ProjectPageProps {
-  params: Promise<{
+  params: {
     projectId: string
-  }>
+  }
 }
 
 export default async function ProjectPage({ params }: ProjectPageProps) {
-  const { projectId } = await params
+  const { projectId } = params
   const decodedId = decodeURIComponent(projectId)
   const project = await getProjectById(decodedId)
 
