@@ -2,8 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search } from "lucide-react"
-import { serializeUrlState, type Period, type UrlState } from "@/lib/project-filters"
+import { ArrowDown, ArrowUp, Search } from "lucide-react"
+import {
+  defaultSortOrder,
+  serializeUrlState,
+  type Period,
+  type SortKey,
+  type UrlState,
+} from "@/lib/project-filters"
 
 interface ProjectsToolbarProps {
   urlState: UrlState
@@ -17,6 +23,12 @@ const PERIOD_OPTIONS: { value: Period; label: string }[] = [
   { value: "7d", label: "Last 7 days" },
   { value: "30d", label: "Last 30 days" },
   { value: "90d", label: "Last 90 days" },
+]
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "recent", label: "Recent" },
+  { value: "sessions", label: "Sessions" },
+  { value: "name", label: "Name" },
 ]
 
 function buildHref(state: UrlState): string {
@@ -72,6 +84,39 @@ export function ProjectsToolbar({ urlState }: ProjectsToolbarProps) {
           </option>
         ))}
       </select>
+      <select
+        value={urlState.sort}
+        onChange={(e) => {
+          const sort = e.target.value as SortKey
+          router.replace(
+            buildHref({ ...urlState, sort, order: defaultSortOrder(sort) }),
+            { scroll: false }
+          )
+        }}
+        aria-label="Sort projects by"
+        className="rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm text-neutral-700 focus:border-neutral-400 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
+      >
+        {SORT_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        onClick={() => {
+          const order = urlState.order === "asc" ? "desc" : "asc"
+          router.replace(buildHref({ ...urlState, order }), { scroll: false })
+        }}
+        aria-label={`Toggle sort order (currently ${urlState.order === "asc" ? "ascending" : "descending"})`}
+        className="rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-700 hover:bg-neutral-50 focus:border-neutral-400 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+      >
+        {urlState.order === "asc" ? (
+          <ArrowUp className="h-4 w-4" aria-hidden />
+        ) : (
+          <ArrowDown className="h-4 w-4" aria-hidden />
+        )}
+      </button>
     </div>
   )
 }
