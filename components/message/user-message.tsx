@@ -1,38 +1,21 @@
 "use client"
 
-import { useState, memo } from "react"
+import { useState } from "react"
 import { User } from "lucide-react"
-import { AssistantMessage } from "./message/assistant-message"
-import { CompactMessage } from "./message/compact-message"
-import { formatTime } from "./message/format-time"
+import { formatTime } from "./format-time"
+import { CompactMessage } from "./compact-message"
 import type { SessionMessage } from "@/types/claude"
 
-interface MessageCardProps {
+interface UserMessageProps {
   message: SessionMessage
 }
 
-function MessageCardInner({ message }: MessageCardProps) {
-  switch (message.type) {
-    case "user":
-      return <UserMessageCard message={message} />
-    case "assistant":
-      return <AssistantMessage message={message} />
-    default:
-      return <CompactMessage message={message} />
-  }
-}
-
-export const MessageCard = memo(MessageCardInner)
-
-// ─── User Message ───
-
-function UserMessageCard({ message }: MessageCardProps) {
+export function UserMessage({ message }: UserMessageProps) {
   const [showRaw, setShowRaw] = useState(false)
   const text = extractUserText(message)
   const isMeta = (message.raw as Record<string, unknown>)?.isMeta === true
 
   if (isMeta) {
-    // Meta messages (skill docs) are shown compactly
     return <CompactMessage message={message} />
   }
 
@@ -63,8 +46,6 @@ function UserMessageCard({ message }: MessageCardProps) {
     </div>
   )
 }
-
-// ─── Helpers ───
 
 function extractUserText(message: SessionMessage): string {
   const raw = message.raw as Record<string, unknown>
@@ -101,4 +82,3 @@ function RawJsonPanel({ raw }: { raw: unknown }) {
     </pre>
   )
 }
-
