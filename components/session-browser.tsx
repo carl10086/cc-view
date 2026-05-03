@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef, useMemo } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card } from "@/components/ui/card"
 // import { Button } from "@/components/ui/button"
 import { SessionSidebar } from "./session-sidebar"
 import { MessageStream } from "./message-stream"
+import { SessionDeleteDialog } from "./session-delete-dialog"
 import { buildWorktreeProjectId } from "@/lib/worktree"
 import type { SessionInfo, SessionMessage, WorktreeInfo } from "@/types/claude"
 
@@ -24,10 +25,13 @@ export function SessionBrowser({ projectId, sessions, worktrees, worktreeSession
     ? buildWorktreeProjectId(projectId, activeWorktree)
     : projectId
 
-  const currentSessions = useMemo(
-    () => (activeWorktree ? (worktreeSessions[activeWorktree] ?? []) : sessions),
-    [activeWorktree, worktreeSessions, sessions]
+  const [currentSessions, setCurrentSessions] = useState<SessionInfo[]>(
+    activeWorktree ? (worktreeSessions[activeWorktree] ?? []) : sessions
   )
+
+  useEffect(() => {
+    setCurrentSessions(activeWorktree ? (worktreeSessions[activeWorktree] ?? []) : sessions)
+  }, [activeWorktree, worktreeSessions, sessions])
 
   const [selectedId, setSelectedId] = useState<string | null>(
     currentSessions[0]?.id ?? null
@@ -38,6 +42,7 @@ export function SessionBrowser({ projectId, sessions, worktrees, worktreeSession
   const [error, setError] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
   const [total, setTotal] = useState(0)
+  const [sessionToDelete, setSessionToDelete] = useState<SessionInfo | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const requestIdRef = useRef(0)
 
@@ -124,21 +129,53 @@ export function SessionBrowser({ projectId, sessions, worktrees, worktreeSession
     }
   }
 
+  async function handleConfirmDelete() {
+    if (!sessionToDelete) return
+
+    try {
+      const res = await fetch(
+        `/api/projects/${encodeURIComponent(effectiveProjectId)}/sessions/${encodeURIComponent(sessionToDelete.id)}`,
+        { method: "DELETE" }
+      )
+
+      if (res.status === 204) {
+        // Remove from local state
+        setCurrentSessions((prev) => prev.filter((s) => s.id !== sessionToDelete.id))
+        setSessionToDelete(null)
+      } else if (res.status === 409) {
+        alert("Cannot delete an active session.")
+        setSessionToDelete(null)
+      } else {
+        const body = await res.json().catch(() => ({ error: "Unknown error" }))
+        alert(body.error || "Failed to delete session.")
+        setSessionToDelete(null)
+      }
+    } catch {
+      alert("Failed to delete session.")
+      setSessionToDelete(null)
+    }
+  }
+
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-      {/* Sidebar */}
-      <div className="lg:col-span-1">
-        <Card className="h-[calc(100vh-12rem)] overflow-hidden">
-          <SessionSidebar
-            sessions={currentSessions}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            worktrees={worktrees}
-            activeWorktree={activeWorktree}
-            onWorktreeChange={setActiveWorktree}
-          />
-        </Card>
-      </div>
+    <>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+        {/* Sidebar */}
+        <div className="lg:col-span-1">
+          <Card className="h-[calc(100vh-12rem)] overflow-hidden">
+            <SessionSidebar
+              sessions={currentSessions}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              worktrees={worktrees}
+              activeWorktree={activeWorktree}
+              onWorktreeChange={setActiveWorktree}
+              onSessionDelete={(id) => {
+                const session = currentSessions.find((s) => s.id === id)
+                if (session) setSessionToDelete(session)
+              }}
+            />
+          </Card>
+        </div>
 
       {/* Detail */}
       <div className="lg:col-span-3">
@@ -182,5 +219,11 @@ export function SessionBrowser({ projectId, sessions, worktrees, worktreeSession
         </Card>
       </div>
     </div>
+    <SessionDeleteDialog
+      session={sessionToDelete}
+      onConfirm={handleConfirmDelete}
+      onCancel={() => setSessionToDelete(null)}
+    />
+  </>
   )
 }
