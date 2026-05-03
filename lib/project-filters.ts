@@ -7,6 +7,7 @@ export type SortOrder = "asc" | "desc"
 export interface FilterState {
   q: string
   period: Period
+  emptyOnly?: boolean
 }
 
 export interface SortState {
@@ -47,6 +48,7 @@ export function filterProjects(
   return projects.filter((p) => {
     if (needle && !p.name.toLowerCase().includes(needle)) return false
     if (lowerBound !== null && p.lastModified.getTime() < lowerBound) return false
+    if (state.emptyOnly && p.sessionCount !== 0) return false
     return true
   })
 }
@@ -93,7 +95,11 @@ export function parseUrlState(sp: Pick<URLSearchParams, "get">): UrlState {
   const sort: SortKey = isSortKey(rawSort) ? rawSort : "recent"
   const rawOrder = sp.get("order")
   const order: SortOrder = isSortOrder(rawOrder) ? rawOrder : defaultSortOrder(sort)
-  return { q, period, sort, order }
+  const result: UrlState = { q, period, sort, order }
+  if (sp.get("empty") === "1") {
+    result.emptyOnly = true
+  }
+  return result
 }
 
 export function serializeUrlState(state: UrlState): string {
@@ -103,6 +109,7 @@ export function serializeUrlState(state: UrlState): string {
   if (state.period !== "any") params.set("period", state.period)
   if (state.sort !== "recent") params.set("sort", state.sort)
   if (state.order !== defaultSortOrder(state.sort)) params.set("order", state.order)
+  if (state.emptyOnly) params.set("empty", "1")
   const s = params.toString()
   return s ? `?${s}` : ""
 }

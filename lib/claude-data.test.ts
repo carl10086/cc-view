@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { getProjectById, getSessions, getSessionMessages, deduplicateProjectNames } from "./claude-data"
+import { getProjectById, getSessions, getSessionMessages, deduplicateProjectNames, deleteProject } from "./claude-data"
 import { buildWorktreeProjectId } from "./worktree"
 
 describe("getProjectById security", () => {
@@ -76,6 +76,28 @@ describe("getSessionMessages security", () => {
   it("should return null for non-jsonl sessionId", async () => {
     const result = await getSessionMessages("valid-project", "malicious.txt")
     expect(result).toBeNull()
+  })
+})
+
+describe("deleteProject security", () => {
+  it("should return false for path traversal with ..", async () => {
+    const result = await deleteProject("../../../etc/passwd")
+    expect(result).toBe(false)
+  })
+
+  it("should return false for absolute paths", async () => {
+    const result = await deleteProject("/absolute/path")
+    expect(result).toBe(false)
+  })
+
+  it("should return false for non-existent project", async () => {
+    const result = await deleteProject("non-existent-project-12345")
+    expect(result).toBe(false)
+  })
+
+  it("should return false for URL encoded path traversal", async () => {
+    const result = await deleteProject("%2e%2e%2f%2e%2e%2fetc%2fpasswd")
+    expect(result).toBe(false)
   })
 })
 
