@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { pluralize } from "@/lib/utils"
 import { formatDistanceToNow } from "date-fns"
 import { SessionBrowser } from "@/components/session-browser"
+import { ProjectCleanupButton } from "@/components/project-cleanup-button"
 import type { SessionInfo } from "@/types/claude"
 
 interface ProjectPageProps {
@@ -75,6 +76,13 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
               {project.id}
             </p>
           </div>
+          <ProjectCleanupButton
+            projectId={decodedId}
+            projectName={project.name}
+            sessions={sessions}
+            worktrees={project.worktrees}
+            worktreeSessions={worktreeSessions}
+          />
         </CardContent>
       </Card>
 
