@@ -1,7 +1,7 @@
 import { promises as fs, statSync, type Dirent } from "fs"
 import path from "path"
 import os from "os"
-import { WORKTREE_MARKER } from "./worktree"
+import { WORKTREE_MARKER, buildWorktreeProjectId } from "./worktree"
 import type { ProjectInfo, SessionInfo, SessionMessage, WorktreeInfo } from "@/types/claude"
 
 const PROJECTS_DIR = path.join(os.homedir(), ".claude", "projects")
@@ -679,6 +679,42 @@ export async function deleteSession(
 
   try {
     await fs.unlink(filePath)
+    return { success: true }
+  } catch {
+    return { success: false, error: "unknown" }
+  }
+}
+
+export async function deleteWorktree(
+  projectId: string,
+  worktreeName: string
+): Promise<{ success: boolean; error?: "not_found" | "unknown" }> {
+  try {
+    buildWorktreeProjectId(projectId, worktreeName)
+  } catch {
+    return { success: false, error: "not_found" }
+  }
+
+  const worktreeId = buildWorktreeProjectId(projectId, worktreeName)
+  const worktreePath = path.join(PROJECTS_DIR, worktreeId)
+
+  const resolved = path.resolve(worktreePath)
+  const resolvedProjectsDir = path.resolve(PROJECTS_DIR)
+  if (!resolved.startsWith(resolvedProjectsDir + path.sep)) {
+    return { success: false, error: "not_found" }
+  }
+
+  try {
+    const stat = await fs.stat(worktreePath)
+    if (!stat.isDirectory()) {
+      return { success: false, error: "not_found" }
+    }
+  } catch {
+    return { success: false, error: "not_found" }
+  }
+
+  try {
+    await fs.rm(worktreePath, { recursive: true, force: true })
     return { success: true }
   } catch {
     return { success: false, error: "unknown" }
