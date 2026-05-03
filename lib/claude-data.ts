@@ -314,6 +314,41 @@ export async function getProjectById(
   }
 }
 
+export async function deleteProject(projectId: string): Promise<boolean> {
+  if (!isValidProjectId(projectId)) {
+    return false
+  }
+
+  const projectPath = path.join(PROJECTS_DIR, projectId)
+
+  try {
+    const stat = await fs.stat(projectPath)
+    if (!stat.isDirectory()) {
+      return false
+    }
+  } catch {
+    return false
+  }
+
+  try {
+    await fs.rm(projectPath, { recursive: true, force: true })
+
+    // Delete associated worktrees
+    const entries = await fs.readdir(PROJECTS_DIR)
+    for (const entry of entries) {
+      const wt = parseWorktree(entry)
+      if (wt && wt.mainId === projectId) {
+        const wtPath = path.join(PROJECTS_DIR, entry)
+        await fs.rm(wtPath, { recursive: true, force: true })
+      }
+    }
+
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function readSessionMeta(
   filePath: string
 ): Promise<{ title: string | null; lineCount: number }> {
