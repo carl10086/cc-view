@@ -350,7 +350,93 @@ export async function deleteProject(projectId: string): Promise<boolean> {
   }
 }
 
-async function readSessionMeta(
+export async function cleanupEmptySessions(
+  projectId: string
+): Promise<{ deletedSessions: number; deletedWorktrees: number }> {
+  if (!isValidProjectId(projectId)) {
+    throw new Error("Invalid project ID")
+  }
+
+  let deletedSessions = 0
+  let deletedWorktrees = 0
+  const projectPath = path.join(PROJECTS_DIR, projectId)
+
+  // Step 1: Clean main directory
+  try {
+    const entries = await fs.readdir(projectPath)
+    const jsonlFiles = entries.filter((e) => e.endsWith(".jsonl"))
+
+    await Promise.all(
+      jsonlFiles.map(async (fileName) => {
+        const filePath = path.join(projectPath, fileName)
+        try {
+          const meta = await readSessionMeta(filePath)
+          if (meta.lineCount === 0) {
+            await fs.unlink(filePath)
+            deletedSessions++
+          }
+        } catch {
+          // skip unreadable files
+        }
+      })
+    )
+  } catch {
+    // ignore directory read errors
+  }
+
+  // Step 2: Clean worktrees
+  try {
+    const entries = await fs.readdir(PROJECTS_DIR, { withFileTypes: true })
+    const worktreeEntries = entries.filter(
+      (e) =>
+        e.isDirectory() &&
+        !e.name.startsWith(".") &&
+        parseWorktree(e.name)?.mainId === projectId
+    )
+
+    await Promise.all(
+      worktreeEntries.map(async (entry) => {
+        const wtPath = path.join(PROJECTS_DIR, entry.name)
+
+        try {
+          const wtEntries = await fs.readdir(wtPath)
+          const jsonlFiles = wtEntries.filter((e) => e.endsWith(".jsonl"))
+
+          await Promise.all(
+            jsonlFiles.map(async (fileName) => {
+              const filePath = path.join(wtPath, fileName)
+              try {
+                const meta = await readSessionMeta(filePath)
+                if (meta.lineCount === 0) {
+                  await fs.unlink(filePath)
+                  deletedSessions++
+                }
+              } catch {
+                // skip unreadable files
+              }
+            })
+          )
+
+          // Check if worktree has any remaining .jsonl files
+          const remaining = await fs.readdir(wtPath)
+          const remainingJsonl = remaining.filter((e) => e.endsWith(".jsonl"))
+          if (remainingJsonl.length === 0) {
+            await fs.rm(wtPath, { recursive: true, force: true })
+            deletedWorktrees++
+          }
+        } catch {
+          // ignore worktree errors
+        }
+      })
+    )
+  } catch {
+    // ignore directory read errors
+  }
+
+  return { deletedSessions, deletedWorktrees }
+}
+
+export async function readSessionMeta(
   filePath: string
 ): Promise<{ title: string | null; lineCount: number }> {
   try {
