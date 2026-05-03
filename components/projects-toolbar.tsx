@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowDown, ArrowUp, Search } from "lucide-react"
+import { ArrowDown, ArrowUp, Search, Trash2 } from "lucide-react"
 import {
   defaultSortOrder,
   serializeUrlState,
@@ -124,6 +124,22 @@ export function ProjectsToolbar({ urlState }: ProjectsToolbarProps) {
         ) : (
           <ArrowDown className="h-4 w-4" aria-hidden />
         )}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          const emptyOnly = !urlState.emptyOnly
+          router.replace(buildHref({ ...urlState, emptyOnly }), { scroll: false })
+        }}
+        aria-label={urlState.emptyOnly ? "Show all projects" : "Show only empty projects"}
+        className={`${CONTROL_BASE} px-2.5 py-1.5 text-sm font-medium flex items-center gap-1.5 ${
+          urlState.emptyOnly
+            ? "bg-red-50 text-red-700 border-red-300 hover:bg-red-100 dark:bg-red-950 dark:text-red-300 dark:border-red-800 dark:hover:bg-red-900"
+            : "hover:bg-neutral-50 dark:hover:bg-neutral-800"
+        }`}
+      >
+        <Trash2 className="h-4 w-4" aria-hidden />
+        {urlState.emptyOnly ? "Empty" : "All"}
       </button>
     </div>
   )

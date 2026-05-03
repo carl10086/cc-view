@@ -122,6 +122,56 @@ describe("filterProjects", () => {
     ).toEqual([p3])
   })
 
+  it("filters by emptyOnly=true (sessionCount === 0)", () => {
+    const empty1: ProjectInfo = { ...p1, id: "empty1", sessionCount: 0 }
+    const empty2: ProjectInfo = { ...p2, id: "empty2", sessionCount: 0 }
+    const result = filterProjects(
+      [p1, empty1, p2, empty2],
+      { q: "", period: "any", emptyOnly: true }
+    )
+    expect(result).toEqual([empty1, empty2])
+  })
+
+  it("emptyOnly=false returns all projects", () => {
+    expect(
+      filterProjects(FIXTURE, { q: "", period: "any", emptyOnly: false })
+    ).toEqual(FIXTURE)
+  })
+
+  it("emptyOnly undefined defaults to false", () => {
+    expect(
+      filterProjects(FIXTURE, { q: "", period: "any" })
+    ).toEqual(FIXTURE)
+  })
+
+  it("combines emptyOnly with q (AND semantic)", () => {
+    const emptyCc: ProjectInfo = { ...p1, id: "empty-cc", sessionCount: 0 }
+    const emptyOther: ProjectInfo = { ...p2, id: "empty-other", sessionCount: 0 }
+    const result = filterProjects(
+      [p1, emptyCc, p2, emptyOther],
+      { q: "cc", period: "any", emptyOnly: true }
+    )
+    expect(result).toEqual([emptyCc])
+  })
+
+  it("combines emptyOnly with period (AND semantic)", () => {
+    const emptyOld: ProjectInfo = {
+      ...p4,
+      id: "empty-old",
+      sessionCount: 0,
+    }
+    const emptyNew: ProjectInfo = {
+      ...p1,
+      id: "empty-new",
+      sessionCount: 0,
+    }
+    const result = filterProjects(
+      [p1, emptyOld, emptyNew],
+      { q: "", period: "today", emptyOnly: true }
+    )
+    expect(result).toEqual([emptyNew])
+  })
+
   it("does not mutate input array", () => {
     const copy = [...FIXTURE]
     filterProjects(FIXTURE, { q: "cc", period: "today" })
@@ -259,6 +309,18 @@ describe("parseUrlState", () => {
     )
   })
 
+  it("parses empty=1 as emptyOnly=true", () => {
+    expect(parseUrlState(new URLSearchParams("empty=1")).emptyOnly).toBe(true)
+  })
+
+  it("parses empty=0 as emptyOnly=undefined", () => {
+    expect(parseUrlState(new URLSearchParams("empty=0")).emptyOnly).toBeUndefined()
+  })
+
+  it("defaults emptyOnly to undefined when missing", () => {
+    expect(parseUrlState(new URLSearchParams("")).emptyOnly).toBeUndefined()
+  })
+
   it.each<Period>(["today", "7d", "30d", "90d"])(
     "accepts valid period=%s",
     (period) => {
@@ -316,6 +378,18 @@ describe("serializeUrlState", () => {
     ).toBe("?q=x&period=7d&sort=name&order=desc")
   })
 
+  it("includes empty when emptyOnly=true", () => {
+    expect(
+      serializeUrlState({ q: "", period: "any", sort: "recent", order: "desc", emptyOnly: true })
+    ).toBe("?empty=1")
+  })
+
+  it("omits empty when emptyOnly=false", () => {
+    expect(
+      serializeUrlState({ q: "foo", period: "any", sort: "recent", order: "desc", emptyOnly: false })
+    ).toBe("?q=foo")
+  })
+
   it("trims and skips whitespace-only q", () => {
     expect(
       serializeUrlState({ q: "   ", period: "any", sort: "recent", order: "desc" })
@@ -335,6 +409,8 @@ describe("URL state round-trip", () => {
     { q: "foo", period: "7d", sort: "name", order: "asc" },
     { q: "Hello World", period: "30d", sort: "sessions", order: "asc" },
     { q: "x", period: "today", sort: "name", order: "desc" },
+    { q: "", period: "any", sort: "recent", order: "desc", emptyOnly: true },
+    { q: "test", period: "7d", sort: "sessions", order: "asc", emptyOnly: true },
   ] as const)("serialize → parse round-trips: %o", (state) => {
     const serialized = serializeUrlState(state)
     const params = new URLSearchParams(serialized.replace(/^\?/, ""))
