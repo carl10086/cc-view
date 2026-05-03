@@ -25,3 +25,10 @@ export interface SessionMessage {
   parentUuid: string | null
   raw: unknown
 }
+
+export interface MessageTurn {
+  id: string
+  user: SessionMessage | null
+  assistant: SessionMessage | null
+  metadata: SessionMessage[]
+}

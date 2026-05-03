@@ -1,5 +1,6 @@
-import { forwardRef } from "react"
-import { MessageCard } from "./message-card"
+import { forwardRef, useMemo } from "react"
+import { MessageTurn } from "./message/message-turn"
+import { groupMessagesIntoTurns } from "@/lib/message-grouping"
 import type { SessionMessage } from "@/types/claude"
 
 interface MessageStreamProps {
@@ -8,6 +9,8 @@ interface MessageStreamProps {
 
 export const MessageStream = forwardRef<HTMLDivElement, MessageStreamProps>(
   function MessageStream({ messages }, ref) {
+    const turns = useMemo(() => groupMessagesIntoTurns(messages), [messages])
+
     if (messages.length === 0) {
       return (
         <div className="flex h-full flex-col items-center justify-center p-8 text-center">
@@ -18,9 +21,9 @@ export const MessageStream = forwardRef<HTMLDivElement, MessageStreamProps>(
 
     return (
       <div ref={ref} className="h-full overflow-y-auto">
-        <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-          {messages.map((message) => (
-            <MessageCard key={message.id} message={message} />
+        <div className="space-y-2 px-2 py-2">
+          {turns.map((turn) => (
+            <MessageTurn key={turn.id} turn={turn} />
           ))}
         </div>
       </div>
