@@ -1,4 +1,4 @@
-import { promises as fs, statSync } from "fs"
+import { promises as fs, statSync, type Dirent } from "fs"
 import path from "path"
 import os from "os"
 import { WORKTREE_MARKER } from "./worktree"
@@ -7,11 +7,35 @@ import type { ProjectInfo, SessionInfo, SessionMessage, WorktreeInfo } from "@/t
 const PROJECTS_DIR = path.join(os.homedir(), ".claude", "projects")
 
 function isValidProjectId(id: string): boolean {
-  if (id.includes("..") || path.isAbsolute(id)) {
+  if (!id || id.includes("..") || path.isAbsolute(id) || id.includes("\0")) {
     return false
   }
-  const resolved = path.resolve(PROJECTS_DIR, id)
+  const normalized = path.normalize(id)
+  if (normalized.startsWith("..") || normalized.includes(`..${path.sep}`)) {
+    return false
+  }
+  const resolved = path.resolve(PROJECTS_DIR, normalized)
   return resolved.startsWith(PROJECTS_DIR + path.sep)
+}
+
+function isPathWithin(filePath: string, parentPath: string): boolean {
+  const normalizedFile = path.normalize(filePath)
+  const normalizedParent = path.normalize(parentPath)
+  return normalizedFile.startsWith(normalizedParent + path.sep)
+}
+
+async function validateProjectPath(projectPath: string): Promise<boolean> {
+  try {
+    const lstat = await fs.lstat(projectPath)
+    if (lstat.isSymbolicLink()) {
+      return false
+    }
+    const realProjectPath = await fs.realpath(projectPath)
+    const realProjectsDir = await fs.realpath(PROJECTS_DIR)
+    return realProjectPath.startsWith(realProjectsDir + path.sep)
+  } catch {
+    return false
+  }
 }
 
 function decodeProjectPath(encodedName: string): string | null {
@@ -350,6 +374,39 @@ export async function deleteProject(projectId: string): Promise<boolean> {
   }
 }
 
+async function cleanupDirectory(
+  dirPath: string
+): Promise<{ deletedCount: number; hasRemainingJsonl: boolean }> {
+  let deletedCount = 0
+  let hasRemainingJsonl = false
+
+  const entries: Dirent[] = await fs.readdir(dirPath, { withFileTypes: true })
+  const jsonlFiles = entries.filter((e) => e.isFile() && e.name.endsWith(".jsonl"))
+
+  for (const file of jsonlFiles) {
+    const filePath = path.join(dirPath, file.name)
+    if (!isPathWithin(filePath, dirPath)) {
+      hasRemainingJsonl = true
+      continue
+    }
+
+    try {
+      const meta = await readSessionMeta(filePath)
+      if (meta.lineCount === 0) {
+        await fs.unlink(filePath)
+        deletedCount++
+      } else {
+        hasRemainingJsonl = true
+      }
+    } catch {
+      // skip unreadable files — treat as remaining to be safe
+      hasRemainingJsonl = true
+    }
+  }
+
+  return { deletedCount, hasRemainingJsonl }
+}
+
 export async function cleanupEmptySessions(
   projectId: string
 ): Promise<{ deletedSessions: number; deletedWorktrees: number }> {
@@ -361,25 +418,16 @@ export async function cleanupEmptySessions(
   let deletedWorktrees = 0
   const projectPath = path.join(PROJECTS_DIR, projectId)
 
+  // Validate resolved path is safe (no symlinks escaping PROJECTS_DIR)
+  const isSafe = await validateProjectPath(projectPath)
+  if (!isSafe) {
+    throw new Error("Invalid project path")
+  }
+
   // Step 1: Clean main directory
   try {
-    const entries = await fs.readdir(projectPath)
-    const jsonlFiles = entries.filter((e) => e.endsWith(".jsonl"))
-
-    await Promise.all(
-      jsonlFiles.map(async (fileName) => {
-        const filePath = path.join(projectPath, fileName)
-        try {
-          const meta = await readSessionMeta(filePath)
-          if (meta.lineCount === 0) {
-            await fs.unlink(filePath)
-            deletedSessions++
-          }
-        } catch {
-          // skip unreadable files
-        }
-      })
-    )
+    const { deletedCount } = await cleanupDirectory(projectPath)
+    deletedSessions += deletedCount
   } catch {
     // ignore directory read errors
   }
@@ -391,44 +439,36 @@ export async function cleanupEmptySessions(
       (e) =>
         e.isDirectory() &&
         !e.name.startsWith(".") &&
+        !e.isSymbolicLink() &&
         parseWorktree(e.name)?.mainId === projectId
     )
 
-    await Promise.all(
-      worktreeEntries.map(async (entry) => {
-        const wtPath = path.join(PROJECTS_DIR, entry.name)
+    for (const entry of worktreeEntries) {
+      const wtPath = path.join(PROJECTS_DIR, entry.name)
 
-        try {
-          const wtEntries = await fs.readdir(wtPath)
-          const jsonlFiles = wtEntries.filter((e) => e.endsWith(".jsonl"))
+      // Validate worktree path safety
+      const wtIsSafe = await validateProjectPath(wtPath)
+      if (!wtIsSafe) {
+        continue
+      }
 
-          await Promise.all(
-            jsonlFiles.map(async (fileName) => {
-              const filePath = path.join(wtPath, fileName)
-              try {
-                const meta = await readSessionMeta(filePath)
-                if (meta.lineCount === 0) {
-                  await fs.unlink(filePath)
-                  deletedSessions++
-                }
-              } catch {
-                // skip unreadable files
-              }
-            })
-          )
+      try {
+        const { deletedCount, hasRemainingJsonl } = await cleanupDirectory(wtPath)
+        deletedSessions += deletedCount
 
-          // Check if worktree has any remaining .jsonl files
-          const remaining = await fs.readdir(wtPath)
-          const remainingJsonl = remaining.filter((e) => e.endsWith(".jsonl"))
-          if (remainingJsonl.length === 0) {
-            await fs.rm(wtPath, { recursive: true, force: true })
+        // Only remove worktree if no .jsonl files remain (either deleted or none existed)
+        if (!hasRemainingJsonl) {
+          try {
+            await fs.rmdir(wtPath)
             deletedWorktrees++
+          } catch {
+            // rmdir fails if directory not empty — that's safe, ignore
           }
-        } catch {
-          // ignore worktree errors
         }
-      })
-    )
+      } catch {
+        // ignore worktree errors
+      }
+    }
   } catch {
     // ignore directory read errors
   }
