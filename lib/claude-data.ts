@@ -335,13 +335,14 @@ export async function deleteProject(projectId: string): Promise<boolean> {
 
     // Delete associated worktrees
     const entries = await fs.readdir(PROJECTS_DIR)
-    for (const entry of entries) {
-      const wt = parseWorktree(entry)
-      if (wt && wt.mainId === projectId) {
+    const worktreeDeletions = entries
+      .map((entry) => ({ entry, wt: parseWorktree(entry) }))
+      .filter(({ wt }) => wt && wt.mainId === projectId)
+      .map(({ entry }) => {
         const wtPath = path.join(PROJECTS_DIR, entry)
-        await fs.rm(wtPath, { recursive: true, force: true })
-      }
-    }
+        return fs.rm(wtPath, { recursive: true, force: true })
+      })
+    await Promise.all(worktreeDeletions)
 
     return true
   } catch {

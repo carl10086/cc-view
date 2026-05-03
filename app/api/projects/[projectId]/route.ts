@@ -6,9 +6,8 @@ export async function DELETE(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   const { projectId } = await params
-  const decodedProjectId = decodeURIComponent(projectId)
 
-  const success = await deleteProject(decodedProjectId)
+  const success = await deleteProject(projectId)
 
   if (!success) {
     return NextResponse.json({ error: "Project not found or could not be deleted" }, { status: 404 })
