@@ -637,3 +637,50 @@ export async function getSessionMessages(
     return null
   }
 }
+
+const ACTIVE_SESSION_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes
+
+export async function isSessionActive(
+  filePath: string,
+  thresholdMs = ACTIVE_SESSION_THRESHOLD_MS
+): Promise<boolean> {
+  try {
+    const stat = await fs.stat(filePath)
+    return Date.now() - stat.mtime.getTime() < thresholdMs
+  } catch {
+    return false
+  }
+}
+
+export async function deleteSession(
+  projectId: string,
+  sessionId: string
+): Promise<{ success: boolean; error?: "not_found" | "active" | "unknown" }> {
+  if (!isValidProjectId(projectId) || !isValidSessionId(sessionId)) {
+    return { success: false, error: "not_found" }
+  }
+
+  const filePath = path.join(PROJECTS_DIR, projectId, sessionId)
+
+  if (!isPathWithin(filePath, PROJECTS_DIR)) {
+    return { success: false, error: "not_found" }
+  }
+
+  try {
+    await fs.stat(filePath)
+  } catch {
+    return { success: false, error: "not_found" }
+  }
+
+  const active = await isSessionActive(filePath)
+  if (active) {
+    return { success: false, error: "active" }
+  }
+
+  try {
+    await fs.unlink(filePath)
+    return { success: true }
+  } catch {
+    return { success: false, error: "unknown" }
+  }
+}
