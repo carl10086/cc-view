@@ -67,7 +67,7 @@ export function sortProjects(
         cmp = a.sessionCount - b.sessionCount
         break
       case "name":
-        cmp = a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+        cmp = a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
         break
     }
     return cmp * direction
@@ -85,7 +85,7 @@ function isSortOrder(v: string | null): v is SortOrder {
   return v !== null && (SORT_ORDERS as readonly string[]).includes(v)
 }
 
-export function parseUrlState(sp: URLSearchParams): UrlState {
+export function parseUrlState(sp: Pick<URLSearchParams, "get">): UrlState {
   const q = (sp.get("q") ?? "").trim()
   const rawPeriod = sp.get("period")
   const period: Period = isPeriod(rawPeriod) ? rawPeriod : "any"

@@ -18,7 +18,7 @@ export function ProjectsView({ projects }: ProjectsViewProps) {
   const searchParams = useSearchParams()
 
   const state = useMemo(
-    () => parseUrlState(new URLSearchParams(searchParams.toString())),
+    () => parseUrlState(searchParams),
     [searchParams]
   )
 

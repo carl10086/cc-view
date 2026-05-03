@@ -31,6 +31,12 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "name", label: "Name" },
 ]
 
+const CONTROL_BASE =
+  "rounded-md border border-neutral-300 bg-white text-neutral-700 focus:border-neutral-400 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
+const INPUT_CLASS = `${CONTROL_BASE} w-full py-1.5 pl-8 pr-3 text-sm`
+const SELECT_CLASS = `${CONTROL_BASE} px-2 py-1.5 text-sm`
+const BUTTON_CLASS = `${CONTROL_BASE} p-1.5 hover:bg-neutral-50 dark:hover:bg-neutral-800`
+
 function buildHref(state: UrlState): string {
   return `/projects${serializeUrlState(state)}`
 }
@@ -66,7 +72,7 @@ export function ProjectsToolbar({ urlState }: ProjectsToolbarProps) {
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Search by name…"
           aria-label="Search projects by name"
-          className="w-full rounded-md border border-neutral-300 bg-white py-1.5 pl-8 pr-3 text-sm text-neutral-700 focus:border-neutral-400 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
+          className={INPUT_CLASS}
         />
       </div>
       <select
@@ -76,7 +82,7 @@ export function ProjectsToolbar({ urlState }: ProjectsToolbarProps) {
           router.replace(buildHref({ ...urlState, period }), { scroll: false })
         }}
         aria-label="Filter by last active time"
-        className="rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm text-neutral-700 focus:border-neutral-400 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
+        className={SELECT_CLASS}
       >
         {PERIOD_OPTIONS.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -94,7 +100,7 @@ export function ProjectsToolbar({ urlState }: ProjectsToolbarProps) {
           )
         }}
         aria-label="Sort projects by"
-        className="rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm text-neutral-700 focus:border-neutral-400 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
+        className={SELECT_CLASS}
       >
         {SORT_OPTIONS.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -109,7 +115,7 @@ export function ProjectsToolbar({ urlState }: ProjectsToolbarProps) {
           router.replace(buildHref({ ...urlState, order }), { scroll: false })
         }}
         aria-label={`Toggle sort order (currently ${urlState.order === "asc" ? "ascending" : "descending"})`}
-        className="rounded-md border border-neutral-300 bg-white p-1.5 text-neutral-700 hover:bg-neutral-50 focus:border-neutral-400 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        className={BUTTON_CLASS}
       >
         {urlState.order === "asc" ? (
           <ArrowUp className="h-4 w-4" aria-hidden />
