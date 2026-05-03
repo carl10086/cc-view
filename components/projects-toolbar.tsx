@@ -44,12 +44,14 @@ function buildHref(state: UrlState): string {
 export function ProjectsToolbar({ urlState }: ProjectsToolbarProps) {
   const router = useRouter()
   const [draft, setDraft] = useState(urlState.q)
-  const [lastSyncedQ, setLastSyncedQ] = useState(urlState.q)
 
-  if (urlState.q !== lastSyncedQ) {
-    setLastSyncedQ(urlState.q)
+  useEffect(() => {
+    // Sync local draft when URL state changes from outside (back/forward nav).
+    // This is the controlled-input reset pattern; setState in effect is
+    // intentional here. See https://react.dev/learn/you-might-not-need-an-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraft(urlState.q)
-  }
+  }, [urlState.q])
 
   useEffect(() => {
     if (draft === urlState.q) return
