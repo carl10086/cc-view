@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { getProjectById, getSessions, getSessionMessages } from "./claude-data"
+import { getProjectById, getSessions, getSessionMessages, deduplicateProjectNames } from "./claude-data"
 import { buildWorktreeProjectId } from "./worktree"
 
 describe("getProjectById security", () => {
@@ -152,6 +152,42 @@ describe("getSessionMessages for real session", () => {
         expect(first).toHaveProperty("raw")
       }
     }
+  })
+})
+
+describe("deduplicateProjectNames", () => {
+  it("disambiguates projects with identical fallback names", () => {
+    // deduplicateProjectNames imported statically at top of file
+    const projects = [
+      {
+        id: "-Users-carlyu-soft-projects-dm-cc",
+        name: "dm/cc",
+        sessionCount: 1,
+        lastModified: new Date("2026-05-01"),
+        worktrees: [],
+      },
+      {
+        id: "-Users-carlyu-soft-projects-coding-agents-dm-cc",
+        name: "dm/cc",
+        sessionCount: 0,
+        lastModified: new Date("2026-05-01"),
+        worktrees: [{ name: "feat-tui", sessionCount: 0 }],
+      },
+    ]
+
+    const result = deduplicateProjectNames(projects)
+    const names = result.map((p) => p.name)
+    expect(new Set(names).size).toBe(2)
+    expect(names).not.toContain("dm/cc")
+  })
+})
+
+describe("orphaned worktree handling", () => {
+  it("should not show duplicate dm/cc entries", async () => {
+    const { getProjects } = await import("./claude-data")
+    const projects = await getProjects()
+    const dmCcNames = projects.filter((p) => p.name === "dm/cc")
+    expect(dmCcNames.length).toBeLessThanOrEqual(1)
   })
 })
 

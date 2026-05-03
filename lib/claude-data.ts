@@ -80,7 +80,7 @@ function parseProjectName(dirName: string): string {
   return withoutPrefix || dirName
 }
 
-function deduplicateProjectNames(projects: ProjectInfo[]): ProjectInfo[] {
+export function deduplicateProjectNames(projects: ProjectInfo[]): ProjectInfo[] {
   // Group by current name
   const groups = new Map<string, ProjectInfo[]>()
   for (const p of projects) {
@@ -216,8 +216,19 @@ export async function getProjects(): Promise<ProjectInfo[]> {
 
           let main = projects.get(wt.mainId)
           if (!main) {
-            main = { sessionCount: 0, worktrees: [] }
-            projects.set(wt.mainId, main)
+            // Check if main project directory actually exists
+            try {
+              const mainStat = await fs.stat(path.join(PROJECTS_DIR, wt.mainId))
+              if (!mainStat.isDirectory()) throw new Error("not a directory")
+            } catch {
+              // Orphaned worktree: treat as standalone project using worktree dir name
+              main = { sessionCount: 0, worktrees: [] }
+              projects.set(entry.name, main)
+            }
+            if (!main) {
+              main = { sessionCount: 0, worktrees: [] }
+              projects.set(wt.mainId, main)
+            }
           }
 
           main.worktrees.push({ name: wt.name, sessionCount })
@@ -244,9 +255,9 @@ export async function getProjects(): Promise<ProjectInfo[]> {
       })
     }
 
-    deduplicateProjectNames(result)
+    const deduped = deduplicateProjectNames(result)
 
-    return result.sort(
+    return deduped.sort(
       (a, b) => b.lastModified.getTime() - a.lastModified.getTime()
     )
   } catch {
