@@ -4,9 +4,10 @@ import type { ProjectInfo } from "@/types/claude"
 
 interface ProjectListProps {
   projects: ProjectInfo[]
+  onDelete?: (project: ProjectInfo) => void
 }
 
-export function ProjectList({ projects }: ProjectListProps) {
+export function ProjectList({ projects, onDelete }: ProjectListProps) {
   if (projects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -24,7 +25,7 @@ export function ProjectList({ projects }: ProjectListProps) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {projects.map((project) => (
-        <ProjectCard key={project.id} project={project} />
+        <ProjectCard key={project.id} project={project} onDelete={onDelete} />
       ))}
     </div>
   )

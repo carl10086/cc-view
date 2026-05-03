@@ -1,12 +1,13 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { FilterX } from "lucide-react"
 import { filterProjects, sortProjects, parseUrlState } from "@/lib/project-filters"
 import { ProjectList } from "./project-list"
 import { ProjectsToolbar } from "./projects-toolbar"
+import { ProjectDeleteDialog } from "./project-delete-dialog"
 import { pluralize } from "@/lib/utils"
 import type { ProjectInfo } from "@/types/claude"
 
@@ -16,6 +17,8 @@ interface ProjectsViewProps {
 
 export function ProjectsView({ projects }: ProjectsViewProps) {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const [deletingProject, setDeletingProject] = useState<ProjectInfo | null>(null)
 
   const state = useMemo(
     () => parseUrlState(searchParams),
@@ -31,6 +34,24 @@ export function ProjectsView({ projects }: ProjectsViewProps) {
   const showAll = visible.length === projects.length
   const filtered = !showAll && projects.length > 0
   const filteredEmpty = projects.length > 0 && visible.length === 0
+
+  async function handleDelete(project: ProjectInfo) {
+    try {
+      const response = await fetch(`/api/projects/${encodeURIComponent(project.id)}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete: ${response.status}`)
+      }
+
+      router.refresh()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to delete project")
+    } finally {
+      setDeletingProject(null)
+    }
+  }
 
   return (
     <>
@@ -68,8 +89,13 @@ export function ProjectsView({ projects }: ProjectsViewProps) {
           </Link>
         </div>
       ) : (
-        <ProjectList projects={visible} />
+        <ProjectList projects={visible} onDelete={setDeletingProject} />
       )}
+      <ProjectDeleteDialog
+        project={deletingProject}
+        onConfirm={() => deletingProject && handleDelete(deletingProject)}
+        onCancel={() => setDeletingProject(null)}
+      />
     </>
   )
 }
