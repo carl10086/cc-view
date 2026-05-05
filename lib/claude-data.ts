@@ -666,17 +666,18 @@ export async function deleteSession(
     return { success: false, error: "not_found" }
   }
 
+  let mtime: Date
   try {
     const stat = await fs.lstat(filePath)
     if (!stat.isFile()) {
       return { success: false, error: "not_found" }
     }
+    mtime = stat.mtime
   } catch {
     return { success: false, error: "not_found" }
   }
 
-  const active = await isSessionActive(filePath)
-  if (active) {
+  if (Date.now() - mtime.getTime() < ACTIVE_SESSION_THRESHOLD_MS) {
     return { success: false, error: "active" }
   }
 
