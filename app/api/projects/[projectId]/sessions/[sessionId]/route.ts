@@ -9,8 +9,14 @@ export async function GET(
   { params }: { params: Promise<{ projectId: string; sessionId: string }> }
 ) {
   const { projectId, sessionId } = await params
-  const decodedProjectId = decodeURIComponent(projectId)
-  const decodedSessionId = decodeURIComponent(sessionId)
+  let decodedProjectId: string
+  let decodedSessionId: string
+  try {
+    decodedProjectId = decodeURIComponent(projectId)
+    decodedSessionId = decodeURIComponent(sessionId)
+  } catch {
+    return NextResponse.json({ error: "Invalid project or session ID" }, { status: 400 })
+  }
 
   const { searchParams } = new URL(request.url)
   const rawOffset = parseInt(searchParams.get("offset") ?? "0", 10)
@@ -48,8 +54,15 @@ export async function DELETE(
   { params }: { params: Promise<{ projectId: string; sessionId: string }> }
 ) {
   const { projectId, sessionId } = await params
-  const decodedProjectId = decodeURIComponent(projectId)
-  const decodedSessionId = decodeURIComponent(sessionId)
+
+  let decodedProjectId: string
+  let decodedSessionId: string
+  try {
+    decodedProjectId = decodeURIComponent(projectId)
+    decodedSessionId = decodeURIComponent(sessionId)
+  } catch {
+    return NextResponse.json({ error: "Invalid project or session ID" }, { status: 400 })
+  }
 
   const result = await deleteSession(decodedProjectId, decodedSessionId)
 

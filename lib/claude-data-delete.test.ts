@@ -3,69 +3,84 @@ import { isSessionActive, deleteSession } from "./claude-data"
 import { promises as fs } from "fs"
 
 describe("isSessionActive", () => {
-  let statSpy: ReturnType<typeof vi.spyOn>
+  let lstatSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    statSpy = vi.spyOn(fs, "stat")
+    lstatSpy = vi.spyOn(fs, "lstat")
   })
 
   afterEach(() => {
-    statSpy.mockRestore()
+    lstatSpy.mockRestore()
   })
 
   it("returns true for recently modified file", async () => {
-    statSpy.mockResolvedValue({
+    lstatSpy.mockResolvedValue({
+      isFile: () => true,
       mtime: new Date(Date.now() - 60_000),
-    } as Awaited<ReturnType<typeof fs.stat>>)
+    } as Awaited<ReturnType<typeof fs.lstat>>)
 
     const result = await isSessionActive("/some/path.jsonl")
     expect(result).toBe(true)
   })
 
   it("returns false for old file", async () => {
-    statSpy.mockResolvedValue({
+    lstatSpy.mockResolvedValue({
+      isFile: () => true,
       mtime: new Date(Date.now() - 10 * 60_000),
-    } as Awaited<ReturnType<typeof fs.stat>>)
+    } as Awaited<ReturnType<typeof fs.lstat>>)
 
     const result = await isSessionActive("/some/path.jsonl")
     expect(result).toBe(false)
   })
 
   it("returns false for non-existent file", async () => {
-    statSpy.mockRejectedValue(new Error("ENOENT"))
+    lstatSpy.mockRejectedValue(new Error("ENOENT"))
 
     const result = await isSessionActive("/some/path.jsonl")
     expect(result).toBe(false)
   })
 
   it("respects custom threshold", async () => {
-    statSpy.mockResolvedValue({
+    lstatSpy.mockResolvedValue({
+      isFile: () => true,
       mtime: new Date(Date.now() - 2 * 60_000),
-    } as Awaited<ReturnType<typeof fs.stat>>)
+    } as Awaited<ReturnType<typeof fs.lstat>>)
 
     const result = await isSessionActive("/some/path.jsonl", 5 * 60_000)
     expect(result).toBe(true)
   })
+
+  it("returns false for symlink (not a regular file)", async () => {
+    lstatSpy.mockResolvedValue({
+      isFile: () => false,
+      isSymbolicLink: () => true,
+      mtime: new Date(Date.now() - 60_000),
+    } as Awaited<ReturnType<typeof fs.lstat>>)
+
+    const result = await isSessionActive("/some/path.jsonl")
+    expect(result).toBe(false)
+  })
 })
 
 describe("deleteSession", () => {
-  let statSpy: ReturnType<typeof vi.spyOn>
+  let lstatSpy: ReturnType<typeof vi.spyOn>
   let unlinkSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    statSpy = vi.spyOn(fs, "stat")
+    lstatSpy = vi.spyOn(fs, "lstat")
     unlinkSpy = vi.spyOn(fs, "unlink")
   })
 
   afterEach(() => {
-    statSpy.mockRestore()
+    lstatSpy.mockRestore()
     unlinkSpy.mockRestore()
   })
 
   it("returns success true for valid inactive session", async () => {
-    statSpy.mockResolvedValue({
+    lstatSpy.mockResolvedValue({
+      isFile: () => true,
       mtime: new Date(Date.now() - 10 * 60_000),
-    } as Awaited<ReturnType<typeof fs.stat>>)
+    } as Awaited<ReturnType<typeof fs.lstat>>)
     unlinkSpy.mockResolvedValue(undefined)
 
     const result = await deleteSession("valid-project", "session.jsonl")
@@ -74,9 +89,10 @@ describe("deleteSession", () => {
   })
 
   it("returns active error for recently modified session", async () => {
-    statSpy.mockResolvedValue({
+    lstatSpy.mockResolvedValue({
+      isFile: () => true,
       mtime: new Date(Date.now() - 60_000),
-    } as Awaited<ReturnType<typeof fs.stat>>)
+    } as Awaited<ReturnType<typeof fs.lstat>>)
 
     const result = await deleteSession("valid-project", "session.jsonl")
     expect(result.success).toBe(false)
@@ -100,6 +116,19 @@ describe("deleteSession", () => {
 
   it("returns not_found for non-jsonl sessionId", async () => {
     const result = await deleteSession("valid-project", "malicious.txt")
+    expect(result.success).toBe(false)
+    expect(result.error).toBe("not_found")
+    expect(unlinkSpy).not.toHaveBeenCalled()
+  })
+
+  it("returns not_found for symlink", async () => {
+    lstatSpy.mockResolvedValue({
+      isFile: () => false,
+      isSymbolicLink: () => true,
+      mtime: new Date(Date.now() - 10 * 60_000),
+    } as Awaited<ReturnType<typeof fs.lstat>>)
+
+    const result = await deleteSession("valid-project", "session.jsonl")
     expect(result.success).toBe(false)
     expect(result.error).toBe("not_found")
     expect(unlinkSpy).not.toHaveBeenCalled()

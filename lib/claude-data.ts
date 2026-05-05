@@ -645,8 +645,8 @@ export async function isSessionActive(
   thresholdMs = ACTIVE_SESSION_THRESHOLD_MS
 ): Promise<boolean> {
   try {
-    const stat = await fs.stat(filePath)
-    return Date.now() - stat.mtime.getTime() < thresholdMs
+    const stat = await fs.lstat(filePath)
+    return stat.isFile() && Date.now() - stat.mtime.getTime() < thresholdMs
   } catch {
     return false
   }
@@ -667,7 +667,10 @@ export async function deleteSession(
   }
 
   try {
-    await fs.stat(filePath)
+    const stat = await fs.lstat(filePath)
+    if (!stat.isFile()) {
+      return { success: false, error: "not_found" }
+    }
   } catch {
     return { success: false, error: "not_found" }
   }
@@ -705,7 +708,7 @@ export async function deleteWorktree(
   }
 
   try {
-    const stat = await fs.stat(worktreePath)
+    const stat = await fs.lstat(worktreePath)
     if (!stat.isDirectory()) {
       return { success: false, error: "not_found" }
     }

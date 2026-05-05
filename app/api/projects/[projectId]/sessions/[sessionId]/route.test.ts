@@ -76,4 +76,17 @@ describe("DELETE /api/projects/[projectId]/sessions/[sessionId]", () => {
 
     expect(mockDeleteSession).toHaveBeenCalledWith("test-project", "session.jsonl")
   })
+
+  it("returns 400 for malformed URI sequence", async () => {
+    mockDeleteSession.mockResolvedValue({ success: true })
+
+    const response = await DELETE(
+      new Request("http://localhost:3000/api/projects/%ZZ/sessions/session.jsonl"),
+      { params: Promise.resolve({ projectId: "%ZZ", sessionId: "session.jsonl" }) }
+    )
+
+    expect(response.status).toBe(400)
+    const body = await response.json()
+    expect(body.error).toBe("Invalid project or session ID")
+  })
 })

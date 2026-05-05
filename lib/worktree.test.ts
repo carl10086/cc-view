@@ -4,21 +4,21 @@ import { buildWorktreeProjectId } from "./worktree"
 import { promises as fs } from "fs"
 
 describe("deleteWorktree", () => {
-  let statSpy: ReturnType<typeof vi.spyOn>
+  let lstatSpy: ReturnType<typeof vi.spyOn>
   let rmSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    statSpy = vi.spyOn(fs, "stat")
+    lstatSpy = vi.spyOn(fs, "lstat")
     rmSpy = vi.spyOn(fs, "rm")
   })
 
   afterEach(() => {
-    statSpy.mockRestore()
+    lstatSpy.mockRestore()
     rmSpy.mockRestore()
   })
 
   it("returns success true for valid worktree", async () => {
-    statSpy.mockResolvedValue({ isDirectory: () => true } as Awaited<ReturnType<typeof fs.stat>>)
+    lstatSpy.mockResolvedValue({ isDirectory: () => true, isSymbolicLink: () => false } as Awaited<ReturnType<typeof fs.lstat>>)
     rmSpy.mockResolvedValue(undefined)
 
     const result = await deleteWorktree("valid-project", "my-worktree")
@@ -27,7 +27,7 @@ describe("deleteWorktree", () => {
   })
 
   it("returns not_found for non-existent worktree", async () => {
-    statSpy.mockRejectedValue(new Error("ENOENT"))
+    lstatSpy.mockRejectedValue(new Error("ENOENT"))
 
     const result = await deleteWorktree("valid-project", "missing-wt")
     expect(result.success).toBe(false)
@@ -72,6 +72,18 @@ describe("deleteWorktree", () => {
 
   it("returns not_found for worktreeName containing WORKTREE_MARKER", async () => {
     const result = await deleteWorktree("project", "wt--claude-worktrees-injected")
+    expect(result.success).toBe(false)
+    expect(result.error).toBe("not_found")
+    expect(rmSpy).not.toHaveBeenCalled()
+  })
+
+  it("returns not_found for symlink (not a real directory)", async () => {
+    lstatSpy.mockResolvedValue({
+      isDirectory: () => false,
+      isSymbolicLink: () => true,
+    } as Awaited<ReturnType<typeof fs.lstat>>)
+
+    const result = await deleteWorktree("valid-project", "my-worktree")
     expect(result.success).toBe(false)
     expect(result.error).toBe("not_found")
     expect(rmSpy).not.toHaveBeenCalled()

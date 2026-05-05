@@ -6,8 +6,14 @@ export async function DELETE(
   { params }: { params: Promise<{ projectId: string; worktreeName: string }> }
 ) {
   const { projectId, worktreeName } = await params
-  const decodedProjectId = decodeURIComponent(projectId)
-  const decodedWorktreeName = decodeURIComponent(worktreeName)
+  let decodedProjectId: string
+  let decodedWorktreeName: string
+  try {
+    decodedProjectId = decodeURIComponent(projectId)
+    decodedWorktreeName = decodeURIComponent(worktreeName)
+  } catch {
+    return NextResponse.json({ error: "Invalid project or worktree name" }, { status: 400 })
+  }
 
   const result = await deleteWorktree(decodedProjectId, decodedWorktreeName)
 

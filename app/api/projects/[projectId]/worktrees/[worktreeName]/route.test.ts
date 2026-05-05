@@ -64,4 +64,17 @@ describe("DELETE /api/projects/[projectId]/worktrees/[worktreeName]", () => {
 
     expect(mockDeleteWorktree).toHaveBeenCalledWith("test-project", "my-worktree")
   })
+
+  it("returns 400 for malformed URI sequence", async () => {
+    mockDeleteWorktree.mockResolvedValue({ success: true })
+
+    const response = await DELETE(
+      new Request("http://localhost:3000/api/projects/%ZZ/worktrees/my-worktree"),
+      { params: Promise.resolve({ projectId: "%ZZ", worktreeName: "my-worktree" }) }
+    )
+
+    expect(response.status).toBe(400)
+    const body = await response.json()
+    expect(body.error).toBe("Invalid project or worktree name")
+  })
 })
