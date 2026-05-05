@@ -21,7 +21,8 @@ export async function GET(
   const { searchParams } = new URL(request.url)
   const rawOffset = parseInt(searchParams.get("offset") ?? "0", 10)
   const rawLimit = parseInt(searchParams.get("limit") ?? String(DEFAULT_LIMIT), 10)
-  const order = searchParams.get("order") ?? "asc"
+  const rawOrder = searchParams.get("order") ?? "asc"
+  const order = rawOrder.toLowerCase().trim()
 
   if (Number.isNaN(rawOffset) || Number.isNaN(rawLimit)) {
     return NextResponse.json({ error: "Invalid offset or limit" }, { status: 400 })

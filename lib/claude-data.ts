@@ -575,6 +575,11 @@ export async function getSessionMessages(
   const filePath = path.join(PROJECTS_DIR, projectId, sessionId)
 
   try {
+    const stat = await fs.stat(filePath)
+    const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
+    if (stat.size > MAX_FILE_SIZE) {
+      throw new Error("Session file too large")
+    }
     const content = await fs.readFile(filePath, "utf-8")
     const lines = content.split("\n")
     const allMessages: SessionMessage[] = []

@@ -10,10 +10,11 @@ interface MessageStreamProps {
   messages: SessionMessage[]
   onScrollNearBottom?: () => void
   filterActive?: boolean
+  hasMore?: boolean
 }
 
 export const MessageStream = forwardRef<HTMLDivElement, MessageStreamProps>(
-  function MessageStream({ messages, onScrollNearBottom, filterActive }, forwardedRef) {
+  function MessageStream({ messages, onScrollNearBottom, filterActive, hasMore }, forwardedRef) {
     const parentRef = useRef<HTMLDivElement>(null)
     const turns = useMemo(() => groupMessagesIntoTurns(messages), [messages])
 
@@ -30,11 +31,12 @@ export const MessageStream = forwardRef<HTMLDivElement, MessageStreamProps>(
     const virtualItems = virtualizer.getVirtualItems()
 
     useEffect(() => {
+      if (!hasMore || turns.length === 0) return
       const lastItem = virtualItems[virtualItems.length - 1]
       if (lastItem && lastItem.index >= turns.length - 3) {
         onScrollNearBottom?.()
       }
-    }, [virtualItems, turns.length, onScrollNearBottom])
+    }, [virtualItems, turns.length, onScrollNearBottom, hasMore])
 
     if (messages.length === 0) {
       return (

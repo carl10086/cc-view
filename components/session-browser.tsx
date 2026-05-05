@@ -52,6 +52,14 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
   const [worktreeToDelete, setWorktreeToDelete] = useState<WorktreeInfo | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const requestIdRef = useRef(0)
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  function cancelPending() {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+  }
 
   // Reset selectedId when worktree changes to avoid stale selection
   useEffect(() => {
@@ -72,7 +80,10 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
   useEffect(() => {
     if (!selectedId) return
     const sessionId = selectedId
+    cancelPending()
     const controller = new AbortController()
+    abortControllerRef.current = controller
+    const myRequestId = ++requestIdRef.current
 
     async function fetchMessages() {
       setLoading(true)
@@ -90,6 +101,9 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
           `/api/projects/${encodeURIComponent(effectiveProjectId)}/sessions/${encodeURIComponent(sessionId)}?offset=0&limit=${pageSize}&order=${sortOrder}`,
           { signal: controller.signal }
         )
+        if (requestIdRef.current !== myRequestId) {
+          return
+        }
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`)
         }
@@ -104,11 +118,16 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
         if (err instanceof Error && err.name === "AbortError") {
           return
         }
+        if (requestIdRef.current !== myRequestId) {
+          return
+        }
         setError(
           err instanceof Error ? err.message : "Failed to load messages"
         )
       } finally {
-        setLoading(false)
+        if (requestIdRef.current === myRequestId) {
+          setLoading(false)
+        }
       }
     }
 
@@ -121,10 +140,14 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
     const targetProjectId = effectiveProjectId
     const targetSessionId = selectedId
     const myRequestId = ++requestIdRef.current
+    cancelPending()
+    const controller = new AbortController()
+    abortControllerRef.current = controller
     setLoadingMore(true)
     try {
       const res = await fetch(
-        `/api/projects/${encodeURIComponent(targetProjectId)}/sessions/${encodeURIComponent(targetSessionId)}?offset=${messages.length}&limit=${pageSize}&order=${sortOrder}`
+        `/api/projects/${encodeURIComponent(targetProjectId)}/sessions/${encodeURIComponent(targetSessionId)}?offset=${messages.length}&limit=${pageSize}&order=${sortOrder}`,
+        { signal: controller.signal }
       )
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`)
@@ -140,9 +163,17 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
         setIsFullyLoaded(true)
       }
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        return
+      }
+      if (requestIdRef.current !== myRequestId) {
+        return
+      }
       setError(err instanceof Error ? err.message : "Failed to load more")
     } finally {
-      setLoadingMore(false)
+      if (requestIdRef.current === myRequestId) {
+        setLoadingMore(false)
+      }
     }
   }
 
@@ -157,13 +188,17 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
     const targetProjectId = effectiveProjectId
     const targetSessionId = selectedId
     const myRequestId = ++requestIdRef.current
+    cancelPending()
+    const controller = new AbortController()
+    abortControllerRef.current = controller
     setLoadingMore(true)
     try {
       let accumulated = [...messages]
       let more = hasMore
       while (more) {
         const res = await fetch(
-          `/api/projects/${encodeURIComponent(targetProjectId)}/sessions/${encodeURIComponent(targetSessionId)}?offset=${accumulated.length}&limit=${pageSize}&order=${sortOrder}`
+          `/api/projects/${encodeURIComponent(targetProjectId)}/sessions/${encodeURIComponent(targetSessionId)}?offset=${accumulated.length}&limit=${pageSize}&order=${sortOrder}`,
+          { signal: controller.signal }
         )
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`)
@@ -179,9 +214,17 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
       }
       setIsFullyLoaded(true)
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        return
+      }
+      if (requestIdRef.current !== myRequestId) {
+        return
+      }
       setError(err instanceof Error ? err.message : "Failed to load all")
     } finally {
-      setLoadingMore(false)
+      if (requestIdRef.current === myRequestId) {
+        setLoadingMore(false)
+      }
     }
   }
 
@@ -400,7 +443,7 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
               </div>
             )}
             {!loading && !error && (
-              <MessageStream ref={scrollRef} messages={filteredMessages} onScrollNearBottom={handleScrollNearBottom} filterActive={isFullyLoaded && selectedTypes.size > 0} />
+              <MessageStream ref={scrollRef} messages={filteredMessages} onScrollNearBottom={handleScrollNearBottom} filterActive={isFullyLoaded && selectedTypes.size > 0} hasMore={hasMore} />
             )}
           </div>
 
