@@ -558,7 +558,8 @@ export async function getSessionMessages(
   projectId: string,
   sessionId: string,
   offset = 0,
-  limit = 1000
+  limit = 1000,
+  order: "asc" | "desc" = "asc"
 ): Promise<{
   title: string | null
   messages: SessionMessage[]
@@ -576,43 +577,20 @@ export async function getSessionMessages(
   try {
     const content = await fs.readFile(filePath, "utf-8")
     const lines = content.split("\n")
-    const messages: SessionMessage[] = []
+    const allMessages: SessionMessage[] = []
     let title: string | null = null
-    let total = 0
 
     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
       const trimmed = lines[lineIdx].trim()
       if (trimmed.length === 0) continue
 
-      total++
-
-      // Skip JSON parsing for lines outside the requested page
-      const messageIdx = total - 1
-      const inRange = messageIdx >= offset && messageIdx < offset + limit
-      if (!inRange) {
-        // Still need to extract title from first 100 lines
-        if (!title && lineIdx < 100) {
-          try {
-            const obj = JSON.parse(trimmed)
-            if (obj.type === "ai-title" && obj.aiTitle) {
-              title = obj.aiTitle
-            }
-          } catch {
-            // skip invalid lines
-          }
-        }
-        continue
-      }
-
       try {
         const obj = JSON.parse(trimmed)
-
         if (obj.type === "ai-title" && obj.aiTitle && !title) {
           title = obj.aiTitle
         }
-
-        messages.push({
-          id: obj.uuid ? `${obj.uuid}-${messageIdx}` : `${messageIdx}`,
+        allMessages.push({
+          id: obj.uuid ? `${obj.uuid}-${allMessages.length}` : `${allMessages.length}`,
           type: obj.type || "unknown",
           timestamp: obj.timestamp ? new Date(obj.timestamp) : null,
           parentUuid: obj.parentUuid || null,
@@ -623,6 +601,9 @@ export async function getSessionMessages(
       }
     }
 
+    const ordered = order === "desc" ? [...allMessages].reverse() : allMessages
+    const messages = ordered.slice(offset, offset + limit)
+    const total = allMessages.length
     const hasMore = offset + limit < total
 
     return {

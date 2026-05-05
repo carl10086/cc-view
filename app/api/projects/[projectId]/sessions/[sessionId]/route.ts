@@ -21,9 +21,14 @@ export async function GET(
   const { searchParams } = new URL(request.url)
   const rawOffset = parseInt(searchParams.get("offset") ?? "0", 10)
   const rawLimit = parseInt(searchParams.get("limit") ?? String(DEFAULT_LIMIT), 10)
+  const order = searchParams.get("order") ?? "asc"
 
   if (Number.isNaN(rawOffset) || Number.isNaN(rawLimit)) {
     return NextResponse.json({ error: "Invalid offset or limit" }, { status: 400 })
+  }
+
+  if (order !== "asc" && order !== "desc") {
+    return NextResponse.json({ error: "Invalid order" }, { status: 400 })
   }
 
   const offset = Math.max(0, rawOffset || 0)
@@ -32,7 +37,7 @@ export async function GET(
     Math.max(1, rawLimit || DEFAULT_LIMIT)
   )
 
-  const result = await getSessionMessages(decodedProjectId, decodedSessionId, offset, limit)
+  const result = await getSessionMessages(decodedProjectId, decodedSessionId, offset, limit, order)
 
   if (!result) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 })
