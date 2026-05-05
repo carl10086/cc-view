@@ -12,6 +12,7 @@ interface SessionSidebarProps {
   activeWorktree?: string | null
   onWorktreeChange?: (name: string | null) => void
   onSessionDelete?: (sessionId: string) => void
+  onWorktreeDelete?: (worktreeName: string) => void
 }
 
 export function SessionSidebar({
@@ -22,6 +23,7 @@ export function SessionSidebar({
   activeWorktree,
   onWorktreeChange,
   onSessionDelete,
+  onWorktreeDelete,
 }: SessionSidebarProps) {
   const hasWorktrees = worktrees.length > 0
 
@@ -45,6 +47,15 @@ export function SessionSidebar({
                 </option>
               ))}
             </select>
+            {onWorktreeDelete && activeWorktree && (
+              <button
+                onClick={() => onWorktreeDelete(activeWorktree)}
+                className="shrink-0 rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+                title="Delete worktree"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         )}
         <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">

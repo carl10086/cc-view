@@ -6,11 +6,13 @@ import { Card } from "@/components/ui/card"
 import { SessionSidebar } from "./session-sidebar"
 import { MessageStream } from "./message-stream"
 import { SessionDeleteDialog } from "./session-delete-dialog"
+import { WorktreeDeleteDialog } from "./worktree-delete-dialog"
 import { buildWorktreeProjectId } from "@/lib/worktree"
 import type { SessionInfo, SessionMessage, WorktreeInfo } from "@/types/claude"
 
 interface SessionBrowserProps {
   projectId: string
+  projectName?: string
   sessions: SessionInfo[]
   worktrees: WorktreeInfo[]
   worktreeSessions: Record<string, SessionInfo[]>
@@ -18,7 +20,7 @@ interface SessionBrowserProps {
 
 const PAGE_SIZE = 500
 
-export function SessionBrowser({ projectId, sessions, worktrees, worktreeSessions }: SessionBrowserProps) {
+export function SessionBrowser({ projectId, projectName, sessions, worktrees, worktreeSessions }: SessionBrowserProps) {
   const [activeWorktree, setActiveWorktree] = useState<string | null>(null)
 
   const effectiveProjectId = activeWorktree
@@ -43,6 +45,7 @@ export function SessionBrowser({ projectId, sessions, worktrees, worktreeSession
   const [hasMore, setHasMore] = useState(false)
   const [total, setTotal] = useState(0)
   const [sessionToDelete, setSessionToDelete] = useState<SessionInfo | null>(null)
+  const [worktreeToDelete, setWorktreeToDelete] = useState<WorktreeInfo | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const requestIdRef = useRef(0)
 
@@ -156,6 +159,29 @@ export function SessionBrowser({ projectId, sessions, worktrees, worktreeSession
     }
   }
 
+  async function handleConfirmDeleteWorktree() {
+    if (!worktreeToDelete) return
+
+    try {
+      const res = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/worktrees/${encodeURIComponent(worktreeToDelete.name)}`,
+        { method: "DELETE" }
+      )
+
+      if (res.status === 204) {
+        setActiveWorktree(null)
+        setWorktreeToDelete(null)
+      } else {
+        const body = await res.json().catch(() => ({ error: "Unknown error" }))
+        alert(body.error || "Failed to delete worktree.")
+        setWorktreeToDelete(null)
+      }
+    } catch {
+      alert("Failed to delete worktree.")
+      setWorktreeToDelete(null)
+    }
+  }
+
   return (
     <>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
@@ -172,6 +198,10 @@ export function SessionBrowser({ projectId, sessions, worktrees, worktreeSession
               onSessionDelete={(id) => {
                 const session = currentSessions.find((s) => s.id === id)
                 if (session) setSessionToDelete(session)
+              }}
+              onWorktreeDelete={(name) => {
+                const wt = worktrees.find((w) => w.name === name)
+                if (wt) setWorktreeToDelete(wt)
               }}
             />
           </Card>
@@ -223,6 +253,12 @@ export function SessionBrowser({ projectId, sessions, worktrees, worktreeSession
       session={sessionToDelete}
       onConfirm={handleConfirmDelete}
       onCancel={() => setSessionToDelete(null)}
+    />
+    <WorktreeDeleteDialog
+      worktree={worktreeToDelete}
+      projectName={projectName ?? ""}
+      onConfirm={handleConfirmDeleteWorktree}
+      onCancel={() => setWorktreeToDelete(null)}
     />
   </>
   )
