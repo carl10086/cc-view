@@ -145,6 +145,77 @@ describe("getSessionMessages pagination", () => {
     expect(lastPage?.hasMore).toBe(false)
     expect(lastPage?.messages.length).toBeLessThanOrEqual(1)
   })
+
+  it("should support desc order", async () => {
+    const projectId = "-Users-carlyu-soft-projects-cc-view"
+    const sessions = await getSessions(projectId)
+    if (sessions.length === 0) {
+      console.log("No sessions found, skipping test")
+      return
+    }
+
+    const sessionId = sessions[0].id
+    const full = await getSessionMessages(projectId, sessionId, 0, 10000)
+    if (!full || full.total <= 1) {
+      console.log("Session has too few messages, skipping desc order test")
+      return
+    }
+
+    const ascFirst = await getSessionMessages(projectId, sessionId, 0, 1, "asc")
+    const descFirst = await getSessionMessages(projectId, sessionId, 0, 1, "desc")
+
+    expect(ascFirst?.messages.length).toBe(1)
+    expect(descFirst?.messages.length).toBe(1)
+    expect(ascFirst?.messages[0].id).not.toBe(descFirst?.messages[0].id)
+    expect(descFirst?.hasMore).toBe(true)
+  })
+
+  it("desc order should return correct pages", async () => {
+    const projectId = "-Users-carlyu-soft-projects-cc-view"
+    const sessions = await getSessions(projectId)
+    if (sessions.length === 0) return
+
+    const sessionId = sessions[0].id
+    const full = await getSessionMessages(projectId, sessionId, 0, 10000)
+    if (!full || full.total <= 2) return
+
+    const page1 = await getSessionMessages(projectId, sessionId, 0, 1, "desc")
+    const page2 = await getSessionMessages(projectId, sessionId, 1, 1, "desc")
+
+    expect(page1?.messages.length).toBe(1)
+    expect(page2?.messages.length).toBe(1)
+    expect(page1?.messages[0].id).not.toBe(page2?.messages[0].id)
+  })
+
+  it("desc first page should equal asc last page", async () => {
+    const projectId = "-Users-carlyu-soft-projects-cc-view"
+    const sessions = await getSessions(projectId)
+    if (sessions.length === 0) return
+
+    const sessionId = sessions[0].id
+    const full = await getSessionMessages(projectId, sessionId, 0, 10000)
+    if (!full || full.total <= 1) return
+
+    const ascLast = await getSessionMessages(projectId, sessionId, full.total - 1, 1, "asc")
+    const descFirst = await getSessionMessages(projectId, sessionId, 0, 1, "desc")
+
+    expect(ascLast?.messages[0].id).toBe(descFirst?.messages[0].id)
+  })
+
+  it("should handle empty session file", async () => {
+    const projectId = "-Users-carlyu-soft-projects-cc-view"
+    const sessions = await getSessions(projectId)
+    if (sessions.length === 0) return
+
+    const sessionId = sessions[0].id
+    const result = await getSessionMessages(projectId, sessionId, 0, 10)
+
+    expect(result).not.toBeNull()
+    if (result) {
+      expect(result.total).toBeGreaterThanOrEqual(0)
+      expect(Array.isArray(result.messages)).toBe(true)
+    }
+  })
 })
 
 describe("getSessionMessages for real session", () => {

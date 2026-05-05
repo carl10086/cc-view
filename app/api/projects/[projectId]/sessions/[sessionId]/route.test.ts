@@ -1,25 +1,141 @@
-import { describe, it, expect, vi } from "vitest"
-import { DELETE } from "./route"
+import { describe, it, expect, vi, beforeEach } from "vitest"
+import { NextRequest } from "next/server"
+import { GET, DELETE } from "./route"
 
 vi.mock("@/lib/claude-data", () => ({
+  getSessionMessages: vi.fn(),
   deleteSession: vi.fn(),
 }))
 
-import { deleteSession } from "@/lib/claude-data"
+import { getSessionMessages, deleteSession } from "@/lib/claude-data"
 
+const mockGetSessionMessages = vi.mocked(getSessionMessages)
 const mockDeleteSession = vi.mocked(deleteSession)
 
-function createRequest(projectId: string, sessionId: string): Request {
-  return new Request(
-    `http://localhost:3000/api/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}`
-  )
+function createRequest(projectId: string, sessionId: string, query?: string): NextRequest {
+  const url = `http://localhost:3000/api/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}${query ? `?${query}` : ""}`
+  return new NextRequest(url)
 }
 
 function createParams(projectId: string, sessionId: string): Promise<{ projectId: string; sessionId: string }> {
   return Promise.resolve({ projectId, sessionId })
 }
 
+describe("GET /api/projects/[projectId]/sessions/[sessionId]", () => {
+  beforeEach(() => {
+    mockGetSessionMessages.mockReset()
+  })
+
+  it("returns session messages with default params", async () => {
+    mockGetSessionMessages.mockResolvedValue({
+      title: "Test Session",
+      messages: [{ id: "1", type: "user", timestamp: null, parentUuid: null, raw: { type: "user" } }],
+      total: 1,
+      offset: 0,
+      limit: 1000,
+      hasMore: false,
+    })
+
+    const response = await GET(createRequest("test-project", "session.jsonl"), {
+      params: createParams("test-project", "session.jsonl"),
+    })
+
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.title).toBe("Test Session")
+    expect(body.messages).toHaveLength(1)
+    expect(mockGetSessionMessages).toHaveBeenCalledWith("test-project", "session.jsonl", 0, 1000, "asc")
+  })
+
+  it("passes order=desc to getSessionMessages", async () => {
+    mockGetSessionMessages.mockResolvedValue({
+      title: null,
+      messages: [],
+      total: 0,
+      offset: 0,
+      limit: 1000,
+      hasMore: false,
+    })
+
+    await GET(createRequest("test-project", "session.jsonl", "order=desc"), {
+      params: createParams("test-project", "session.jsonl"),
+    })
+
+    expect(mockGetSessionMessages).toHaveBeenCalledWith("test-project", "session.jsonl", 0, 1000, "desc")
+  })
+
+  it("normalizes order parameter to lowercase", async () => {
+    mockGetSessionMessages.mockResolvedValue({
+      title: null,
+      messages: [],
+      total: 0,
+      offset: 0,
+      limit: 1000,
+      hasMore: false,
+    })
+
+    await GET(createRequest("test-project", "session.jsonl", "order=DESC"), {
+      params: createParams("test-project", "session.jsonl"),
+    })
+
+    expect(mockGetSessionMessages).toHaveBeenCalledWith("test-project", "session.jsonl", 0, 1000, "desc")
+  })
+
+  it("returns 400 for invalid order", async () => {
+    const response = await GET(createRequest("test-project", "session.jsonl", "order=invalid"), {
+      params: createParams("test-project", "session.jsonl"),
+    })
+
+    expect(response.status).toBe(400)
+    const body = await response.json()
+    expect(body.error).toBe("Invalid order")
+  })
+
+  it("returns 400 for invalid offset", async () => {
+    const response = await GET(createRequest("test-project", "session.jsonl", "offset=abc"), {
+      params: createParams("test-project", "session.jsonl"),
+    })
+
+    expect(response.status).toBe(400)
+    const body = await response.json()
+    expect(body.error).toBe("Invalid offset or limit")
+  })
+
+  it("returns 404 when session not found", async () => {
+    mockGetSessionMessages.mockResolvedValue(null)
+
+    const response = await GET(createRequest("test-project", "session.jsonl"), {
+      params: createParams("test-project", "session.jsonl"),
+    })
+
+    expect(response.status).toBe(404)
+    const body = await response.json()
+    expect(body.error).toBe("Session not found")
+  })
+
+  it("clamps limit to MAX_LIMIT", async () => {
+    mockGetSessionMessages.mockResolvedValue({
+      title: null,
+      messages: [],
+      total: 0,
+      offset: 0,
+      limit: 2000,
+      hasMore: false,
+    })
+
+    await GET(createRequest("test-project", "session.jsonl", "limit=5000"), {
+      params: createParams("test-project", "session.jsonl"),
+    })
+
+    expect(mockGetSessionMessages).toHaveBeenCalledWith("test-project", "session.jsonl", 0, 2000, "asc")
+  })
+})
+
 describe("DELETE /api/projects/[projectId]/sessions/[sessionId]", () => {
+  beforeEach(() => {
+    mockDeleteSession.mockReset()
+  })
+
   it("returns 204 when deleteSession succeeds", async () => {
     mockDeleteSession.mockResolvedValue({ success: true })
 
