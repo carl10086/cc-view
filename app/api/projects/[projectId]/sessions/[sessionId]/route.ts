@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getSessionMessages } from "@/lib/claude-data"
+import { getSessionMessages, deleteSession } from "@/lib/claude-data"
 
 const DEFAULT_LIMIT = 1000
 const MAX_LIMIT = 2000
@@ -9,8 +9,14 @@ export async function GET(
   { params }: { params: Promise<{ projectId: string; sessionId: string }> }
 ) {
   const { projectId, sessionId } = await params
-  const decodedProjectId = decodeURIComponent(projectId)
-  const decodedSessionId = decodeURIComponent(sessionId)
+  let decodedProjectId: string
+  let decodedSessionId: string
+  try {
+    decodedProjectId = decodeURIComponent(projectId)
+    decodedSessionId = decodeURIComponent(sessionId)
+  } catch {
+    return NextResponse.json({ error: "Invalid project or session ID" }, { status: 400 })
+  }
 
   const { searchParams } = new URL(request.url)
   const rawOffset = parseInt(searchParams.get("offset") ?? "0", 10)
@@ -41,4 +47,35 @@ export async function GET(
     limit: result.limit,
     hasMore: result.hasMore,
   })
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ projectId: string; sessionId: string }> }
+) {
+  const { projectId, sessionId } = await params
+
+  let decodedProjectId: string
+  let decodedSessionId: string
+  try {
+    decodedProjectId = decodeURIComponent(projectId)
+    decodedSessionId = decodeURIComponent(sessionId)
+  } catch {
+    return NextResponse.json({ error: "Invalid project or session ID" }, { status: 400 })
+  }
+
+  const result = await deleteSession(decodedProjectId, decodedSessionId)
+
+  if (result.success) {
+    return new NextResponse(null, { status: 204 })
+  }
+
+  switch (result.error) {
+    case "not_found":
+      return NextResponse.json({ error: "Session not found" }, { status: 404 })
+    case "active":
+      return NextResponse.json({ error: "Session is currently active" }, { status: 409 })
+    default:
+      return NextResponse.json({ error: "Failed to delete session" }, { status: 500 })
+  }
 }

@@ -1,7 +1,7 @@
 import { promises as fs, statSync, type Dirent } from "fs"
 import path from "path"
 import os from "os"
-import { WORKTREE_MARKER } from "./worktree"
+import { WORKTREE_MARKER, buildWorktreeProjectId } from "./worktree"
 import type { ProjectInfo, SessionInfo, SessionMessage, WorktreeInfo } from "@/types/claude"
 
 const PROJECTS_DIR = path.join(os.homedir(), ".claude", "projects")
@@ -635,5 +635,92 @@ export async function getSessionMessages(
     }
   } catch {
     return null
+  }
+}
+
+const ACTIVE_SESSION_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes
+
+export async function isSessionActive(
+  filePath: string,
+  thresholdMs = ACTIVE_SESSION_THRESHOLD_MS
+): Promise<boolean> {
+  try {
+    const stat = await fs.lstat(filePath)
+    return stat.isFile() && Date.now() - stat.mtime.getTime() < thresholdMs
+  } catch {
+    return false
+  }
+}
+
+export async function deleteSession(
+  projectId: string,
+  sessionId: string
+): Promise<{ success: boolean; error?: "not_found" | "active" | "unknown" }> {
+  if (!isValidProjectId(projectId) || !isValidSessionId(sessionId)) {
+    return { success: false, error: "not_found" }
+  }
+
+  const filePath = path.join(PROJECTS_DIR, projectId, sessionId)
+
+  if (!isPathWithin(filePath, PROJECTS_DIR)) {
+    return { success: false, error: "not_found" }
+  }
+
+  let mtime: Date
+  try {
+    const stat = await fs.lstat(filePath)
+    if (!stat.isFile()) {
+      return { success: false, error: "not_found" }
+    }
+    mtime = stat.mtime
+  } catch {
+    return { success: false, error: "not_found" }
+  }
+
+  if (Date.now() - mtime.getTime() < ACTIVE_SESSION_THRESHOLD_MS) {
+    return { success: false, error: "active" }
+  }
+
+  try {
+    await fs.unlink(filePath)
+    return { success: true }
+  } catch {
+    return { success: false, error: "unknown" }
+  }
+}
+
+export async function deleteWorktree(
+  projectId: string,
+  worktreeName: string
+): Promise<{ success: boolean; error?: "not_found" | "unknown" }> {
+  try {
+    buildWorktreeProjectId(projectId, worktreeName)
+  } catch {
+    return { success: false, error: "not_found" }
+  }
+
+  const worktreeId = buildWorktreeProjectId(projectId, worktreeName)
+  const worktreePath = path.join(PROJECTS_DIR, worktreeId)
+
+  const resolved = path.resolve(worktreePath)
+  const resolvedProjectsDir = path.resolve(PROJECTS_DIR)
+  if (!resolved.startsWith(resolvedProjectsDir + path.sep)) {
+    return { success: false, error: "not_found" }
+  }
+
+  try {
+    const stat = await fs.lstat(worktreePath)
+    if (!stat.isDirectory()) {
+      return { success: false, error: "not_found" }
+    }
+  } catch {
+    return { success: false, error: "not_found" }
+  }
+
+  try {
+    await fs.rm(worktreePath, { recursive: true, force: true })
+    return { success: true }
+  } catch {
+    return { success: false, error: "unknown" }
   }
 }

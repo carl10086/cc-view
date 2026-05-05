@@ -88,6 +88,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
       <SessionBrowser
         projectId={decodedId}
+        projectName={project.name}
         sessions={sessions}
         worktrees={project.worktrees}
         worktreeSessions={worktreeSessions}
