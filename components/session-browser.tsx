@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 // import { Button } from "@/components/ui/button"
 import { SessionSidebar } from "./session-sidebar"
@@ -44,6 +44,7 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
   const [error, setError] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
   const [total, setTotal] = useState(0)
+  const [isFullyLoaded, setIsFullyLoaded] = useState(false)
   const [sessionToDelete, setSessionToDelete] = useState<SessionInfo | null>(null)
   const [worktreeToDelete, setWorktreeToDelete] = useState<WorktreeInfo | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -74,6 +75,9 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
       setLoading(true)
       setError(null)
       setMessages([])
+      setHasMore(false)
+      setIsFullyLoaded(false)
+      setTotal(0)
       if (scrollRef.current) {
         scrollRef.current.scrollTop = 0
       }
@@ -89,6 +93,9 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
         setMessages(data.messages || [])
         setHasMore(data.hasMore || false)
         setTotal(data.total || 0)
+        if (!data.hasMore) {
+          setIsFullyLoaded(true)
+        }
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {
           return
@@ -106,7 +113,7 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
   }, [effectiveProjectId, selectedId])
 
   async function loadMore() {
-    if (!selectedId || loadingMore) return
+    if (!selectedId || loadingMore || isFullyLoaded) return
     const targetProjectId = effectiveProjectId
     const targetSessionId = selectedId
     const myRequestId = ++requestIdRef.current
@@ -125,8 +132,50 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
       }
       setMessages((prev) => [...prev, ...(data.messages || [])])
       setHasMore(data.hasMore || false)
+      if (!data.hasMore) {
+        setIsFullyLoaded(true)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load more")
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  const handleScrollNearBottom = useCallback(() => {
+    if (hasMore && !loadingMore && !isFullyLoaded) {
+      loadMore()
+    }
+  }, [hasMore, loadingMore, isFullyLoaded])
+
+  async function loadAll() {
+    if (!selectedId || loadingMore || isFullyLoaded) return
+    const targetProjectId = effectiveProjectId
+    const targetSessionId = selectedId
+    const myRequestId = ++requestIdRef.current
+    setLoadingMore(true)
+    try {
+      let accumulated = [...messages]
+      let more = hasMore
+      while (more) {
+        const res = await fetch(
+          `/api/projects/${encodeURIComponent(targetProjectId)}/sessions/${encodeURIComponent(targetSessionId)}?offset=${accumulated.length}&limit=${PAGE_SIZE}`
+        )
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`)
+        }
+        const data = await res.json()
+        if (requestIdRef.current !== myRequestId) {
+          return
+        }
+        accumulated = [...accumulated, ...(data.messages || [])]
+        more = data.hasMore || false
+        setMessages(accumulated)
+        setHasMore(more)
+      }
+      setIsFullyLoaded(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load all")
     } finally {
       setLoadingMore(false)
     }
@@ -230,20 +279,21 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
               </div>
             )}
             {!loading && !error && (
-              <MessageStream ref={scrollRef} messages={messages} />
+              <MessageStream ref={scrollRef} messages={messages} onScrollNearBottom={handleScrollNearBottom} />
             )}
           </div>
 
           {/* Load more */}
-          {hasMore && !loading && (
-            <div className="border-t border-neutral-100 p-3 text-center dark:border-neutral-800">
-              <button
-                onClick={loadMore}
-                disabled={loadingMore}
-                className="rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-300 dark:hover:bg-neutral-900"
-              >
-                {loadingMore ? "Loading..." : `Load more (${total - messages.length} remaining)`}
-              </button>
+          {!loading && !isFullyLoaded && (
+            <div className="border-t border-neutral-100 p-2 text-center text-xs text-neutral-400 dark:border-neutral-800">
+              {hasMore
+                ? `Scroll to load more • ${total - messages.length} remaining`
+                : "All messages loaded"}
+            </div>
+          )}
+          {isFullyLoaded && (
+            <div className="border-t border-neutral-100 p-2 text-center text-xs text-neutral-400 dark:border-neutral-800">
+              All messages loaded
             </div>
           )}
         </Card>
