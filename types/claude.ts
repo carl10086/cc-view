@@ -14,6 +14,7 @@ export interface ProjectInfo {
 export interface SessionInfo {
   id: string
   title: string | null
+  firstPrompt: string | null
   messageCount: number
   lastModified: Date
 }

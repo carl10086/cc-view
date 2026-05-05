@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest"
-import { getProjectById, getSessions, getSessionMessages, deduplicateProjectNames, deleteProject } from "./claude-data"
+import { getProjectById, getSessions, getSessionMessages, deduplicateProjectNames, deleteProject, readSessionPreview } from "./claude-data"
 import { buildWorktreeProjectId } from "./worktree"
+import fs from "fs"
+import os from "os"
+import path from "path"
 
 describe("getProjectById security", () => {
   it("should return null for path traversal with ..", async () => {
@@ -373,5 +376,148 @@ describe("buildWorktreeProjectId", () => {
   it("should throw for overly long worktreeName", () => {
     const longName = "a".repeat(300)
     expect(() => buildWorktreeProjectId("project", longName)).toThrow()
+  })
+})
+
+describe("readSessionPreview", () => {
+  function createTempJsonl(content: string): string {
+    const tmpDir = os.tmpdir()
+    const fileName = `test-${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`
+    const filePath = path.join(tmpDir, fileName)
+    fs.writeFileSync(filePath, content, "utf-8")
+    return filePath
+  }
+
+  function cleanup(filePath: string) {
+    try {
+      fs.unlinkSync(filePath)
+    } catch {
+      // ignore
+    }
+  }
+
+  it("extracts firstPrompt from user message with string content", async () => {
+    const filePath = createTempJsonl(
+      JSON.stringify({ type: "permission-mode", permissionMode: "default" }) + "\n" +
+      JSON.stringify({ type: "user", message: { role: "user", content: "Hello world" } }) + "\n"
+    )
+
+    try {
+      const result = await readSessionPreview(filePath)
+      expect(result.firstPrompt).toBe("Hello world")
+      expect(result.lineCount).toBe(2)
+    } finally {
+      cleanup(filePath)
+    }
+  })
+
+  it("extracts text blocks from array content", async () => {
+    const filePath = createTempJsonl(
+      JSON.stringify({ type: "file-history-snapshot", snapshot: {} }) + "\n" +
+      JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: [
+            { type: "text", text: "First part" },
+            { type: "tool_use", name: "tool" },
+            { type: "text", text: "second part" },
+          ],
+        },
+      }) + "\n"
+    )
+
+    try {
+      const result = await readSessionPreview(filePath)
+      expect(result.firstPrompt).toBe("First part second part")
+    } finally {
+      cleanup(filePath)
+    }
+  })
+
+  it("returns null firstPrompt when no user message exists", async () => {
+    const filePath = createTempJsonl(
+      JSON.stringify({ type: "permission-mode", permissionMode: "default" }) + "\n" +
+      JSON.stringify({ type: "file-history-snapshot", snapshot: {} }) + "\n"
+    )
+
+    try {
+      const result = await readSessionPreview(filePath)
+      expect(result.firstPrompt).toBeNull()
+      expect(result.lineCount).toBe(2)
+    } finally {
+      cleanup(filePath)
+    }
+  })
+
+  it("truncates firstPrompt longer than 200 chars", async () => {
+    const longText = "a".repeat(250)
+    const filePath = createTempJsonl(
+      JSON.stringify({ type: "user", message: { role: "user", content: longText } }) + "\n"
+    )
+
+    try {
+      const result = await readSessionPreview(filePath)
+      expect(result.firstPrompt).not.toBeNull()
+      expect(result.firstPrompt!.length).toBeLessThanOrEqual(201) // 200 + "…"
+      expect(result.firstPrompt!.endsWith("…")).toBe(true)
+    } finally {
+      cleanup(filePath)
+    }
+  })
+
+  it("returns null firstPrompt for empty content", async () => {
+    const filePath = createTempJsonl(
+      JSON.stringify({ type: "user", message: { role: "user", content: "" } }) + "\n"
+    )
+
+    try {
+      const result = await readSessionPreview(filePath)
+      expect(result.firstPrompt).toBeNull()
+    } finally {
+      cleanup(filePath)
+    }
+  })
+
+  it("returns null firstPrompt for empty array content", async () => {
+    const filePath = createTempJsonl(
+      JSON.stringify({ type: "user", message: { role: "user", content: [] } }) + "\n"
+    )
+
+    try {
+      const result = await readSessionPreview(filePath)
+      expect(result.firstPrompt).toBeNull()
+    } finally {
+      cleanup(filePath)
+    }
+  })
+
+  it("preserves existing title extraction", async () => {
+    const filePath = createTempJsonl(
+      JSON.stringify({ type: "ai-title", aiTitle: "My Session Title" }) + "\n" +
+      JSON.stringify({ type: "user", message: { role: "user", content: "User question here" } }) + "\n"
+    )
+
+    try {
+      const result = await readSessionPreview(filePath)
+      expect(result.title).toBe("My Session Title")
+      expect(result.firstPrompt).toBe("User question here")
+    } finally {
+      cleanup(filePath)
+    }
+  })
+
+  it("handles real session files correctly", async () => {
+    const projectId = "-Users-carlyu-soft-projects-cc-view"
+    const sessions = await getSessions(projectId)
+    if (sessions.length === 0) {
+      console.log("No sessions found, skipping real file test")
+      return
+    }
+
+    const first = sessions[0]
+    expect(first).toHaveProperty("firstPrompt")
+    // firstPrompt may be null or string depending on session content
+    expect(first.firstPrompt === null || typeof first.firstPrompt === "string").toBe(true)
   })
 })
