@@ -400,7 +400,7 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
               </div>
             )}
             {!loading && !error && (
-              <MessageStream ref={scrollRef} messages={filteredMessages} onScrollNearBottom={handleScrollNearBottom} />
+              <MessageStream ref={scrollRef} messages={filteredMessages} onScrollNearBottom={handleScrollNearBottom} filterActive={isFullyLoaded && selectedTypes.size > 0} />
             )}
           </div>
 

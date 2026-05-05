@@ -9,10 +9,11 @@ import type { SessionMessage } from "@/types/claude"
 interface MessageStreamProps {
   messages: SessionMessage[]
   onScrollNearBottom?: () => void
+  filterActive?: boolean
 }
 
 export const MessageStream = forwardRef<HTMLDivElement, MessageStreamProps>(
-  function MessageStream({ messages, onScrollNearBottom }, forwardedRef) {
+  function MessageStream({ messages, onScrollNearBottom, filterActive }, forwardedRef) {
     const parentRef = useRef<HTMLDivElement>(null)
     const turns = useMemo(() => groupMessagesIntoTurns(messages), [messages])
 
@@ -38,7 +39,9 @@ export const MessageStream = forwardRef<HTMLDivElement, MessageStreamProps>(
     if (messages.length === 0) {
       return (
         <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-          <p className="text-sm text-neutral-500">No messages in this session</p>
+          <p className="text-sm text-neutral-500">
+            {filterActive ? "No messages match the filter" : "No messages in this session"}
+          </p>
         </div>
       )
     }
