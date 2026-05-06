@@ -531,7 +531,9 @@ export async function readSessionPreview(
         try {
           const obj = JSON.parse(line)
 
-          if (!title && obj.type === "ai-title" && obj.aiTitle) {
+          if (obj.type === "custom-title" && obj.customTitle) {
+            title = obj.customTitle
+          } else if (!title && obj.type === "ai-title" && obj.aiTitle) {
             title = obj.aiTitle
           }
 

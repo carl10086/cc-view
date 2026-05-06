@@ -520,4 +520,48 @@ describe("readSessionPreview", () => {
     // firstPrompt may be null or string depending on session content
     expect(first.firstPrompt === null || typeof first.firstPrompt === "string").toBe(true)
   })
+
+  it("prioritizes custom-title over ai-title", async () => {
+    const filePath = createTempJsonl(
+      JSON.stringify({ type: "ai-title", aiTitle: "AI Generated Title" }) + "\n" +
+      JSON.stringify({ type: "custom-title", customTitle: "User Renamed Title" }) + "\n" +
+      JSON.stringify({ type: "user", message: { role: "user", content: "Hello world" } }) + "\n"
+    )
+
+    try {
+      const result = await readSessionPreview(filePath)
+      expect(result.title).toBe("User Renamed Title")
+    } finally {
+      cleanup(filePath)
+    }
+  })
+
+  it("falls back to ai-title when no custom-title", async () => {
+    const filePath = createTempJsonl(
+      JSON.stringify({ type: "ai-title", aiTitle: "AI Generated Title" }) + "\n" +
+      JSON.stringify({ type: "user", message: { role: "user", content: "Hello world" } }) + "\n"
+    )
+
+    try {
+      const result = await readSessionPreview(filePath)
+      expect(result.title).toBe("AI Generated Title")
+    } finally {
+      cleanup(filePath)
+    }
+  })
+
+  it("returns null title when no custom-title and no ai-title", async () => {
+    const filePath = createTempJsonl(
+      JSON.stringify({ type: "permission-mode", permissionMode: "default" }) + "\n" +
+      JSON.stringify({ type: "user", message: { role: "user", content: "Hello world" } }) + "\n"
+    )
+
+    try {
+      const result = await readSessionPreview(filePath)
+      expect(result.title).toBeNull()
+      expect(result.firstPrompt).toBe("Hello world")
+    } finally {
+      cleanup(filePath)
+    }
+  })
 })
