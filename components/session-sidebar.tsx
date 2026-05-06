@@ -89,6 +89,11 @@ export function SessionSidebar({
                     <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100">
                       {session.title ?? session.id.slice(0, 8)}
                     </p>
+                    {session.firstPrompt && (
+                      <p className="mt-0.5 truncate text-xs text-neutral-500">
+                        {session.firstPrompt}
+                      </p>
+                    )}
                     <div className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
                       <span>{session.messageCount} messages</span>
                       <span>·</span>
