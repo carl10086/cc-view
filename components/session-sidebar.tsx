@@ -93,14 +93,14 @@ export function SessionSidebar({
                 <div className="flex items-start gap-2">
                   <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                      {session.title ?? session.id.slice(0, 8)}
-                    </p>
                     {session.firstPrompt && (
-                      <p className="mt-0.5 truncate text-xs text-neutral-500">
+                      <p className="truncate text-xs text-neutral-700 dark:text-neutral-300">
                         {truncatePreview(session.firstPrompt, SIDEBAR_PREVIEW_MAX)}
                       </p>
                     )}
+                    <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                      {session.title ?? session.id.slice(0, 8)}
+                    </p>
                     <div className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
                       <span>{session.messageCount} messages</span>
                       <span>·</span>

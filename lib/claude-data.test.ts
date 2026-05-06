@@ -564,4 +564,19 @@ describe("readSessionPreview", () => {
       cleanup(filePath)
     }
   })
+
+  it("nullifies firstPrompt when custom-title exists", async () => {
+    const filePath = createTempJsonl(
+      JSON.stringify({ type: "user", message: { role: "user", content: "Hello world" } }) + "\n" +
+      JSON.stringify({ type: "custom-title", customTitle: "Renamed Session" }) + "\n"
+    )
+
+    try {
+      const result = await readSessionPreview(filePath)
+      expect(result.title).toBe("Renamed Session")
+      expect(result.firstPrompt).toBeNull()
+    } finally {
+      cleanup(filePath)
+    }
+  })
 })

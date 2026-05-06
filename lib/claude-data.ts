@@ -533,6 +533,7 @@ export async function readSessionPreview(
 
           if (obj.type === "custom-title" && obj.customTitle) {
             title = obj.customTitle
+            firstPrompt = null  // custom-title 足够可读，不需要 preview
           } else if (!title && obj.type === "ai-title" && obj.aiTitle) {
             title = obj.aiTitle
           }
