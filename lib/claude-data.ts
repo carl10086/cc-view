@@ -496,6 +496,22 @@ function extractTextContent(content: unknown): string {
   return ""
 }
 
+function cleanFirstPrompt(text: string): string | null {
+  let cleaned = text.trim()
+  if (!cleaned) return null
+
+  // Skip interrupted requests
+  if (cleaned.startsWith("[Request interrupted by user")) return null
+
+  // Remove XML tags but preserve their inner text
+  cleaned = cleaned.replace(/<[^>]+>/g, " ")
+
+  // Collapse multiple whitespace into single space
+  cleaned = cleaned.replace(/\s+/g, " ").trim()
+
+  return cleaned || null
+}
+
 export async function readSessionPreview(
   filePath: string
 ): Promise<{ title: string | null; lineCount: number; firstPrompt: string | null }> {
@@ -521,8 +537,8 @@ export async function readSessionPreview(
 
           if (!firstPrompt && obj.type === "user" && obj.message?.content) {
             const text = extractTextContent(obj.message.content)
-            const cleaned = text.replace(/\n/g, " ").trim()
-            if (cleaned.length > 0) {
+            const cleaned = cleanFirstPrompt(text)
+            if (cleaned) {
               firstPrompt = cleaned.length > MAX_PREVIEW_CHARS
                 ? cleaned.slice(0, MAX_PREVIEW_CHARS).trim() + "…"
                 : cleaned
