@@ -390,8 +390,8 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
 
               {/* Row 1.5: full firstPrompt preview */}
               {selectedSession?.firstPrompt && (
-                <div className="mt-2 border-l-2 border-neutral-300 pl-3 dark:border-neutral-600">
-                  <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                <div className="mt-2 border-l-2 border-neutral-500 pl-3 dark:border-neutral-400">
+                  <p className="text-xs text-neutral-800 dark:text-neutral-200">
                     {selectedSession.firstPrompt}
                   </p>
                 </div>
