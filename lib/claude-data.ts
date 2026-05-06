@@ -391,7 +391,7 @@ async function cleanupDirectory(
     }
 
     try {
-      const meta = await readSessionMeta(filePath)
+      const meta = await readSessionPreview(filePath)
       if (meta.lineCount === 0) {
         await fs.unlink(filePath)
         deletedCount++
@@ -476,25 +476,76 @@ export async function cleanupEmptySessions(
   return { deletedSessions, deletedWorktrees }
 }
 
-export async function readSessionMeta(
+const MAX_PREVIEW_CHARS = 200
+
+function extractTextContent(content: unknown): string {
+  if (typeof content === "string") {
+    return content
+  }
+
+  if (Array.isArray(content)) {
+    const texts: string[] = []
+    for (const block of content) {
+      if (block && typeof block === "object" && block.type === "text" && typeof block.text === "string") {
+        texts.push(block.text)
+      }
+    }
+    return texts.join(" ")
+  }
+
+  return ""
+}
+
+function cleanFirstPrompt(text: string): string | null {
+  let cleaned = text.trim()
+  if (!cleaned) return null
+
+  // Skip interrupted requests
+  if (cleaned.startsWith("[Request interrupted by user")) return null
+
+  // Remove XML tags but preserve their inner text
+  cleaned = cleaned.replace(/<[^>]+>/g, " ")
+
+  // Collapse multiple whitespace into single space
+  cleaned = cleaned.replace(/\s+/g, " ").trim()
+
+  return cleaned || null
+}
+
+export async function readSessionPreview(
   filePath: string
-): Promise<{ title: string | null; lineCount: number }> {
+): Promise<{ title: string | null; lineCount: number; firstPrompt: string | null }> {
   try {
     const content = await fs.readFile(filePath, "utf-8")
     const lines = content.split("\n")
     let title: string | null = null
     let lineCount = 0
+    let firstPrompt: string | null = null
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim()
       if (line.length === 0) continue
       lineCount++
 
-      if (!title && i < 100) {
+      if (i < 100) {
         try {
           const obj = JSON.parse(line)
-          if (obj.type === "ai-title" && obj.aiTitle) {
+
+          if (obj.type === "custom-title" && obj.customTitle) {
+            title = obj.customTitle
+            firstPrompt = null  // custom-title 足够可读，不需要 preview
+          } else if (!title && obj.type === "ai-title" && obj.aiTitle) {
             title = obj.aiTitle
+          }
+
+          if (!firstPrompt && obj.type === "user" && obj.message?.content) {
+            const text = extractTextContent(obj.message.content)
+            const cleaned = cleanFirstPrompt(text)
+            if (cleaned) {
+              firstPrompt = cleaned.length > MAX_PREVIEW_CHARS
+                ? cleaned.slice(0, MAX_PREVIEW_CHARS).trim() + "…"
+                : cleaned
+            }
           }
         } catch {
           // skip invalid lines
@@ -502,9 +553,9 @@ export async function readSessionMeta(
       }
     }
 
-    return { title, lineCount }
+    return { title, lineCount, firstPrompt }
   } catch {
-    return { title: null, lineCount: 0 }
+    return { title: null, lineCount: 0, firstPrompt: null }
   }
 }
 
@@ -525,12 +576,13 @@ export async function getSessions(projectId: string): Promise<SessionInfo[]> {
         try {
           const [stat, meta] = await Promise.all([
             fs.stat(filePath),
-            readSessionMeta(filePath),
+            readSessionPreview(filePath),
           ])
 
           return {
             id: fileName,
             title: meta.title,
+            firstPrompt: meta.firstPrompt,
             messageCount: meta.lineCount,
             lastModified: stat.mtime,
           }

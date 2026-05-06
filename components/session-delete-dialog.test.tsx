@@ -6,6 +6,7 @@ import type { SessionInfo } from "@/types/claude"
 const mockSession: SessionInfo = {
   id: "2025-05-04-session.jsonl",
   title: "Test Session",
+  firstPrompt: "Test prompt preview",
   messageCount: 12,
   lastModified: new Date(),
 }

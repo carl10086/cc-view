@@ -4,6 +4,13 @@ import { formatDistanceToNow } from "date-fns"
 import { MessageSquare, FileText, Trash2 } from "lucide-react"
 import type { SessionInfo, WorktreeInfo } from "@/types/claude"
 
+const SIDEBAR_PREVIEW_MAX = 50
+
+function truncatePreview(text: string, max: number): string {
+  if (text.length <= max) return text
+  return text.slice(0, max).trim() + "…"
+}
+
 interface SessionSidebarProps {
   sessions: SessionInfo[]
   selectedId: string | null
@@ -86,6 +93,11 @@ export function SessionSidebar({
                 <div className="flex items-start gap-2">
                   <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
                   <div className="min-w-0 flex-1">
+                    {session.firstPrompt && (
+                      <p className="truncate text-xs text-neutral-700 dark:text-neutral-300">
+                        {truncatePreview(session.firstPrompt, SIDEBAR_PREVIEW_MAX)}
+                      </p>
+                    )}
                     <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100">
                       {session.title ?? session.id.slice(0, 8)}
                     </p>

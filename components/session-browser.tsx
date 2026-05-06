@@ -177,6 +177,8 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
     }
   }
 
+  const selectedSession = currentSessions.find((s) => s.id === selectedId)
+
   const handleScrollNearBottom = useCallback(() => {
     if (hasMore && !loadingMore && !isFullyLoaded) {
       loadMore()
@@ -385,6 +387,15 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
                   )}
                 </div>
               </div>
+
+              {/* Row 1.5: full firstPrompt preview */}
+              {selectedSession?.firstPrompt && (
+                <div className="mt-2 border-l-2 border-neutral-500 pl-3 dark:border-neutral-400">
+                  <p className="text-xs text-neutral-800 dark:text-neutral-200">
+                    {selectedSession.firstPrompt}
+                  </p>
+                </div>
+              )}
 
               {/* Row 2: type filters */}
               {isFullyLoaded && availableTypes.length > 0 && (
