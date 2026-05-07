@@ -28,6 +28,32 @@ export function extractCompactMessages(messages: SessionMessage[]): CompactMessa
   return result
 }
 
+/**
+ * Extract only compact_boundary messages (markers from /compact command).
+ */
+export function extractCompactBoundaryMessages(messages: SessionMessage[]): CompactMessageNavItem[] {
+  const turns = groupMessagesIntoTurns(messages)
+  const result: CompactMessageNavItem[] = []
+
+  for (let turnIndex = 0; turnIndex < turns.length; turnIndex++) {
+    const turn = turns[turnIndex]
+    for (const msg of turn.metadata) {
+      const raw = msg.raw as Record<string, unknown>
+      if (msg.type === "system" && raw.subtype === "compact_boundary") {
+        result.push({
+          turnIndex,
+          messageId: msg.id,
+          type: "compact_boundary",
+          preview: getCompactPreview(msg),
+          timestamp: msg.timestamp,
+        })
+      }
+    }
+  }
+
+  return result
+}
+
 function getCompactPreview(message: SessionMessage): string {
   const raw = message.raw as Record<string, unknown>
 
@@ -173,8 +199,8 @@ export function extractToolResults(
 }
 
 /**
- * Pair tool_use blocks with corresponding tool_result blocks by index.
- * Assumes order is preserved (LLM constraint).
+ * Pair tool_use blocks with corresponding tool_result blocks by tool_use_id.
+ * Falls back to index-based matching if tool_use_id is not available.
  */
 export function pairToolCalls(
   toolUses: Array<Record<string, unknown>>,
@@ -183,8 +209,19 @@ export function pairToolCalls(
   toolUse: Record<string, unknown>
   toolResult?: Record<string, unknown>
 }> {
-  return toolUses.map((toolUse, index) => ({
-    toolUse,
-    toolResult: toolResults[index],
-  }))
+  return toolUses.map((toolUse, index) => {
+    const toolUseId = toolUse.id as string | undefined
+    if (toolUseId) {
+      const matched = toolResults.find(
+        (tr) => tr.tool_use_id === toolUseId
+      )
+      if (matched) {
+        return { toolUse, toolResult: matched }
+      }
+      // tool_use has id but no matching tool_use_id found
+      return { toolUse, toolResult: undefined }
+    }
+    // Fallback to index-based matching when no tool_use id
+    return { toolUse, toolResult: toolResults[index] }
+  })
 }

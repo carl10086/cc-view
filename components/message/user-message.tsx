@@ -4,27 +4,56 @@ import { useState } from "react"
 import { User } from "lucide-react"
 import { formatTime } from "./format-time"
 import { CompactMessage } from "./compact-message"
+import { ToolResultCard } from "./tool-result-card"
 import type { SessionMessage } from "@/types/claude"
 
 interface UserMessageProps {
   message: SessionMessage
+  toolNames?: string[]
+  onNavigateToTool?: (toolIndex: number) => void
 }
 
-export function UserMessage({ message }: UserMessageProps) {
+export function UserMessage({ message, toolNames, onNavigateToTool }: UserMessageProps) {
   const [showRaw, setShowRaw] = useState(false)
-  const text = extractUserText(message)
   const isMeta = (message.raw as Record<string, unknown>)?.isMeta === true
 
   if (isMeta) {
     return <CompactMessage message={message} />
   }
 
+  const { textItems, toolResultItems } = extractUserContent(message)
+  const hasText = textItems.length > 0
+  const hasToolResults = toolResultItems.length > 0
+
   return (
     <div className="group flex items-start justify-end gap-2 px-4 py-3">
-      <div className="max-w-[85%]">
-        <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-2.5 text-white shadow-sm">
-          <p className="whitespace-pre-wrap text-sm leading-relaxed">{text}</p>
-        </div>
+      <div className="max-w-[85%] w-full space-y-2">
+        {/* Text content — 蓝色气泡 */}
+        {hasText && (
+          <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-2.5 text-white shadow-sm">
+            {textItems.map((item, i) => (
+              <p key={i} className="whitespace-pre-wrap text-sm leading-relaxed">
+                {item.text}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {/* Tool results — 独立卡片 */}
+        {hasToolResults && (
+          <div className="space-y-1.5">
+            {toolResultItems.map((item, i) => (
+              <ToolResultCard
+                key={i}
+                toolResult={item.result}
+                toolName={toolNames?.[i]}
+                onNavigateToTool={() => onNavigateToTool?.(i)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Footer */}
         <div className="mt-1 flex items-center justify-end gap-2">
           {message.timestamp && (
             <span className="text-[10px] text-neutral-400">
@@ -47,32 +76,34 @@ export function UserMessage({ message }: UserMessageProps) {
   )
 }
 
-function extractUserText(message: SessionMessage): string {
+function extractUserContent(message: SessionMessage): {
+  textItems: Array<{ text: string }>
+  toolResultItems: Array<{ result: Record<string, unknown> }>
+} {
   const raw = message.raw as Record<string, unknown>
   const msg = raw.message as Record<string, unknown> | undefined
-  if (!msg) return ""
+  if (!msg) return { textItems: [], toolResultItems: [] }
 
   const content = msg.content
   if (typeof content === "string") {
-    return content
+    return { textItems: [{ text: content }], toolResultItems: [] }
   }
-  if (Array.isArray(content)) {
-    const textItem = content.find(
-      (c: Record<string, unknown>) => c.type === "text"
-    )
-    if (textItem?.text) return String(textItem.text)
+  if (!Array.isArray(content)) {
+    return { textItems: [], toolResultItems: [] }
+  }
 
-    const toolResult = content.find(
-      (c: Record<string, unknown>) => c.type === "tool_result"
-    )
-    if (toolResult) {
-      const resultContent = toolResult.content
-      if (typeof resultContent === "string") {
-        return `[Tool result]\n${resultContent.slice(0, 300)}${resultContent.length > 300 ? "..." : ""}`
-      }
+  const textItems: Array<{ text: string }> = []
+  const toolResultItems: Array<{ result: Record<string, unknown> }> = []
+
+  for (const item of content as Array<Record<string, unknown>>) {
+    if (item.type === "text" && item.text) {
+      textItems.push({ text: String(item.text) })
+    } else if (item.type === "tool_result") {
+      toolResultItems.push({ result: item })
     }
   }
-  return ""
+
+  return { textItems, toolResultItems }
 }
 
 function RawJsonPanel({ raw }: { raw: unknown }) {
