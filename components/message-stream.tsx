@@ -1,10 +1,16 @@
 "use client"
 
-import { forwardRef, useMemo, useRef, useImperativeHandle, useEffect } from "react"
+import { forwardRef, useMemo, useRef, useImperativeHandle, useEffect, useState } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { MessageTurn } from "./message/message-turn"
 import { groupMessagesIntoTurns } from "@/lib/message-grouping"
 import type { SessionMessage } from "@/types/claude"
+
+export interface MessageStreamHandle {
+  scrollToMessage: (messageId: string) => void
+  scrollToTop: () => void
+  scrollToBottom: () => void
+}
 
 interface MessageStreamProps {
   messages: SessionMessage[]
@@ -13,12 +19,37 @@ interface MessageStreamProps {
   hasMore?: boolean
 }
 
-export const MessageStream = forwardRef<HTMLDivElement, MessageStreamProps>(
+export const MessageStream = forwardRef<MessageStreamHandle, MessageStreamProps>(
   function MessageStream({ messages, onScrollNearBottom, filterActive, hasMore }, forwardedRef) {
     const parentRef = useRef<HTMLDivElement>(null)
     const turns = useMemo(() => groupMessagesIntoTurns(messages), [messages])
+    const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
 
-    useImperativeHandle(forwardedRef, () => parentRef.current!)
+    useImperativeHandle(forwardedRef, () => ({
+      scrollToMessage: (messageId: string) => {
+        // Find the turn containing this message
+        const turnIndex = turns.findIndex(
+          (turn) =>
+            turn.user?.id === messageId ||
+            turn.assistant?.id === messageId ||
+            turn.metadata.some((msg) => msg.id === messageId)
+        )
+        if (turnIndex !== -1) {
+          virtualizer.scrollToIndex(turnIndex, { align: "center" })
+          setHighlightedMessageId(messageId)
+        }
+      },
+      scrollToTop: () => {
+        if (parentRef.current) {
+          parentRef.current.scrollTop = 0
+        }
+      },
+      scrollToBottom: () => {
+        if (parentRef.current) {
+          parentRef.current.scrollTop = parentRef.current.scrollHeight
+        }
+      },
+    }))
 
     const virtualizer = useVirtualizer({
       count: turns.length,
@@ -64,7 +95,7 @@ export const MessageStream = forwardRef<HTMLDivElement, MessageStreamProps>(
                 transform: `translateY(${virtualItem.start}px)`,
               }}
             >
-              <MessageTurn turn={turns[virtualItem.index]} />
+              <MessageTurn turn={turns[virtualItem.index]} highlightedMessageId={highlightedMessageId} />
             </div>
           ))}
         </div>

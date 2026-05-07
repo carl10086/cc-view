@@ -1,5 +1,70 @@
 import type { SessionMessage, MessageTurn } from "@/types/claude"
 
+export interface CompactMessageNavItem {
+  turnIndex: number
+  messageId: string
+  type: string
+  preview: string
+  timestamp: Date | null
+}
+
+export function extractCompactMessages(messages: SessionMessage[]): CompactMessageNavItem[] {
+  const turns = groupMessagesIntoTurns(messages)
+  const result: CompactMessageNavItem[] = []
+
+  for (let turnIndex = 0; turnIndex < turns.length; turnIndex++) {
+    const turn = turns[turnIndex]
+    for (const msg of turn.metadata) {
+      result.push({
+        turnIndex,
+        messageId: msg.id,
+        type: msg.type,
+        preview: getCompactPreview(msg),
+        timestamp: msg.timestamp,
+      })
+    }
+  }
+
+  return result
+}
+
+function getCompactPreview(message: SessionMessage): string {
+  const raw = message.raw as Record<string, unknown>
+
+  switch (message.type) {
+    case "system": {
+      const subtype = raw.subtype as string
+      const duration = raw.durationMs as number | undefined
+      const count = raw.messageCount as number | undefined
+      let s = subtype || "system"
+      if (duration !== undefined) s += ` · ${duration}ms`
+      if (count !== undefined) s += ` · ${count} msgs`
+      return s
+    }
+    case "attachment": {
+      const att = raw.attachment as Record<string, unknown> | undefined
+      const hook = att?.hookName as string
+      const type = att?.type as string
+      return (type || "") + (hook ? ` · ${hook}` : "")
+    }
+    case "ai-title":
+      return String(raw.aiTitle ?? "")
+    case "last-prompt":
+      return `leaf: ${String(raw.leafUuid ?? "").slice(0, 8)}`
+    case "permission-mode":
+      return String(raw.permissionMode ?? "")
+    case "file-history-snapshot": {
+      const snapshot = raw.snapshot as Record<string, unknown> | undefined
+      const backups = snapshot?.trackedFileBackups as Record<string, unknown> | undefined
+      return `${backups ? Object.keys(backups).length : 0} files`
+    }
+    case "queue-operation":
+      return `${String(raw.operation ?? "")}`
+    default:
+      return Object.keys(raw).slice(0, 3).join(", ")
+  }
+}
+
 /**
  * Group flat messages into conversation turns.
  *

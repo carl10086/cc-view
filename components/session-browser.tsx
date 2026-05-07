@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Card } from "@/components/ui/card"
 import { SessionSidebar } from "./session-sidebar"
-import { MessageStream } from "./message-stream"
+import { MessageStream, type MessageStreamHandle } from "./message-stream"
+import { MessageNavPanel } from "./message/message-nav-panel"
+import { extractCompactMessages } from "@/lib/message-grouping"
 import { SessionDeleteDialog } from "./session-delete-dialog"
 import { WorktreeDeleteDialog } from "./worktree-delete-dialog"
 import { buildWorktreeProjectId } from "@/lib/worktree"
@@ -50,7 +52,7 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set())
   const [sessionToDelete, setSessionToDelete] = useState<SessionInfo | null>(null)
   const [worktreeToDelete, setWorktreeToDelete] = useState<WorktreeInfo | null>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<MessageStreamHandle>(null)
   const requestIdRef = useRef(0)
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -94,7 +96,11 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
       setSelectedTypes(new Set())
       setTotal(0)
       if (scrollRef.current) {
-        scrollRef.current.scrollTop = sortOrder === 'asc' ? 0 : scrollRef.current.scrollHeight
+        if (sortOrder === 'asc') {
+          scrollRef.current.scrollToTop()
+        } else {
+          scrollRef.current.scrollToBottom()
+        }
       }
       try {
         const res = await fetch(
@@ -243,6 +249,16 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
     if (!isFullyLoaded || selectedTypes.size === 0) return messages
     return messages.filter((m) => selectedTypes.has(m.type))
   }, [messages, isFullyLoaded, selectedTypes])
+
+  // Derived: compact navigation items
+  const compactNavItems = useMemo(() => {
+    if (!isFullyLoaded) return []
+    return extractCompactMessages(filteredMessages)
+  }, [filteredMessages, isFullyLoaded])
+
+  function handleNavigate(messageId: string) {
+    scrollRef.current?.scrollToMessage(messageId)
+  }
 
   async function handleConfirmDelete() {
     if (!sessionToDelete) return
@@ -441,20 +457,31 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
             </div>
           )}
 
-          {/* Content */}
-          <div className="flex-1 overflow-hidden">
-            {loading && (
-              <div className="flex h-full items-center justify-center">
-                <p className="text-sm text-neutral-500">Loading messages...</p>
+          {/* Content + Nav */}
+          <div className="flex flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden">
+              {loading && (
+                <div className="flex h-full items-center justify-center">
+                  <p className="text-sm text-neutral-500">Loading messages...</p>
+                </div>
+              )}
+              {error && (
+                <div className="flex h-full items-center justify-center">
+                  <p className="text-sm text-red-500">Error: {error}</p>
+                </div>
+              )}
+              {!loading && !error && (
+                <MessageStream ref={scrollRef} messages={filteredMessages} onScrollNearBottom={handleScrollNearBottom} filterActive={isFullyLoaded && selectedTypes.size > 0} hasMore={hasMore} />
+              )}
+            </div>
+            {total > 0 && (
+              <div className="hidden lg:block">
+                <MessageNavPanel
+                  items={compactNavItems}
+                  onNavigate={handleNavigate}
+                  disabledHint={!isFullyLoaded ? "Load all to enable navigation" : undefined}
+                />
               </div>
-            )}
-            {error && (
-              <div className="flex h-full items-center justify-center">
-                <p className="text-sm text-red-500">Error: {error}</p>
-              </div>
-            )}
-            {!loading && !error && (
-              <MessageStream ref={scrollRef} messages={filteredMessages} onScrollNearBottom={handleScrollNearBottom} filterActive={isFullyLoaded && selectedTypes.size > 0} hasMore={hasMore} />
             )}
           </div>
 
