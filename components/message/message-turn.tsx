@@ -13,9 +13,10 @@ import type { MessageTurn } from "@/types/claude"
 
 interface MessageTurnProps {
   turn: MessageTurn
+  highlightedMessageId?: string | null
 }
 
-export function MessageTurn({ turn }: MessageTurnProps) {
+export function MessageTurn({ turn, highlightedMessageId }: MessageTurnProps) {
   const toolUses = turn.assistant ? extractToolUses(turn.assistant) : []
   const toolResults = turn.user ? extractToolResults(turn.user) : []
   const pairedTools = pairToolCalls(toolUses, toolResults)
@@ -46,7 +47,7 @@ export function MessageTurn({ turn }: MessageTurnProps) {
       {turn.metadata.length > 0 && (
         <div className="border-t border-neutral-100 dark:border-neutral-800">
           {turn.metadata.map((msg) => (
-            <CompactMessage key={msg.id} message={msg} />
+            <CompactMessage key={msg.id} message={msg} isHighlighted={msg.id === highlightedMessageId} />
           ))}
         </div>
       )}

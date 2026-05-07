@@ -1,16 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ChevronDown, ChevronUp } from "lucide-react"
 import { JsonTree } from "./json-tree"
 import { formatTime } from "./format-time"
+import { cn } from "@/lib/utils"
 import type { SessionMessage } from "@/types/claude"
 
 interface CompactMessageProps {
   message: SessionMessage
+  isHighlighted?: boolean
 }
 
-const typeConfig: Record<
+export const typeConfig: Record<
   string,
   { label: string; color: string; bgColor: string }
 > = {
@@ -51,23 +53,45 @@ const typeConfig: Record<
   },
 }
 
-export function CompactMessage({ message }: CompactMessageProps) {
+export function CompactMessage({ message, isHighlighted: externalHighlighted }: CompactMessageProps) {
   const [showJson, setShowJson] = useState(false)
+  const [isHighlighted, setIsHighlighted] = useState(externalHighlighted ?? false)
 
-  const config = typeConfig[message.type] || {
-    label: message.type,
-    color: "text-neutral-400",
-    bgColor: "bg-neutral-50 dark:bg-neutral-900/50",
-  }
+  // Sync external highlight prop
+  useEffect(() => {
+    setIsHighlighted(externalHighlighted ?? false)
+  }, [externalHighlighted])
+
+  // Auto-clear highlight after 2 seconds
+  useEffect(() => {
+    if (!isHighlighted) return
+    const timer = setTimeout(() => {
+      setIsHighlighted(false)
+    }, 2000)
+    return () => clearTimeout(timer)
+  }, [isHighlighted])
+
+  const config = Object.prototype.hasOwnProperty.call(typeConfig, message.type)
+    ? typeConfig[message.type]
+    : {
+        label: message.type,
+        color: "text-neutral-400",
+        bgColor: "bg-neutral-50 dark:bg-neutral-900/50",
+      }
 
   const preview = getCompactPreview(message)
   const summary = getCompactSummary(message)
 
   return (
     <div
-      className={`group flex flex-col px-4 py-1.5 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-900/50 ${
-        showJson ? "bg-neutral-50 dark:bg-neutral-900/30" : ""
-      }`}
+      className={cn(
+        "group flex flex-col px-4 py-1.5 transition-colors",
+        isHighlighted
+          ? "bg-blue-50 dark:bg-blue-900/20"
+          : showJson
+            ? "bg-neutral-50 dark:bg-neutral-900/30"
+            : "hover:bg-neutral-50 dark:hover:bg-neutral-900/50"
+      )}
     >
       {/* Main row */}
       <div className="flex items-center gap-2">
