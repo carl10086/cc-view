@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { SessionSidebar } from "./session-sidebar"
 import { MessageStream, type MessageStreamHandle } from "./message-stream"
 import { MessageNavPanel } from "./message/message-nav-panel"
-import { extractCompactMessages } from "@/lib/message-grouping"
+import { extractCompactBoundaryMessages } from "@/lib/message-grouping"
 import { SessionDeleteDialog } from "./session-delete-dialog"
 import { WorktreeDeleteDialog } from "./worktree-delete-dialog"
 import { buildWorktreeProjectId } from "@/lib/worktree"
@@ -250,10 +250,10 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
     return messages.filter((m) => selectedTypes.has(m.type))
   }, [messages, isFullyLoaded, selectedTypes])
 
-  // Derived: compact navigation items
+  // Derived: compact boundary navigation items (only /compact markers)
   const compactNavItems = useMemo(() => {
     if (!isFullyLoaded) return []
-    return extractCompactMessages(filteredMessages)
+    return extractCompactBoundaryMessages(filteredMessages)
   }, [filteredMessages, isFullyLoaded])
 
   function handleNavigate(messageId: string) {

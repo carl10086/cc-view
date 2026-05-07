@@ -3,13 +3,15 @@
 import { useState } from "react"
 import { ChevronDown, ChevronUp, Wrench, Clock } from "lucide-react"
 import { JsonTree } from "./json-tree"
+import { cn } from "@/lib/utils"
 
 interface ToolCallCardProps {
   toolUse: Record<string, unknown>
   toolResult?: Record<string, unknown>
+  isHighlighted?: boolean
 }
 
-export function ToolCallCard({ toolUse, toolResult }: ToolCallCardProps) {
+export function ToolCallCard({ toolUse, toolResult, isHighlighted }: ToolCallCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   const toolName = String(toolUse.name ?? "unknown")
@@ -17,7 +19,12 @@ export function ToolCallCard({ toolUse, toolResult }: ToolCallCardProps) {
   const hasResult = toolResult !== undefined
 
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/30">
+    <div className={cn(
+      "rounded-lg border bg-amber-50/50 dark:bg-amber-950/30 transition-colors",
+      isHighlighted
+        ? "border-amber-400 bg-amber-100 dark:border-amber-400 dark:bg-amber-900/40"
+        : "border-amber-200 dark:border-amber-900"
+    )}>
       {/* Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { UserMessage } from "./user-message"
 import { AssistantMessage } from "./assistant-message"
 import { CompactMessage } from "./compact-message"
@@ -21,6 +22,25 @@ export function MessageTurn({ turn, highlightedMessageId }: MessageTurnProps) {
   const toolResults = turn.user ? extractToolResults(turn.user) : []
   const pairedTools = pairToolCalls(toolUses, toolResults)
 
+  const [highlightedToolIndex, setHighlightedToolIndex] = useState<number | null>(null)
+
+  // Auto-clear highlight after 2 seconds
+  useEffect(() => {
+    if (highlightedToolIndex === null) return
+    const timer = setTimeout(() => setHighlightedToolIndex(null), 2000)
+    return () => clearTimeout(timer)
+  }, [highlightedToolIndex])
+
+  // Build toolNames array for UserMessage: match each toolResult to its paired toolUse by index
+  const toolNames: string[] = []
+  if (turn.user) {
+    const results = extractToolResults(turn.user)
+    for (let i = 0; i < results.length; i++) {
+      const paired = pairedTools[i]
+      toolNames.push(paired ? String(paired.toolUse.name ?? "") : "")
+    }
+  }
+
   const hasContent =
     turn.user || turn.assistant || turn.metadata.length > 0 || pairedTools.length > 0
 
@@ -41,7 +61,13 @@ export function MessageTurn({ turn, highlightedMessageId }: MessageTurnProps) {
       )}
 
       {/* User message */}
-      {turn.user && <UserMessage message={turn.user} />}
+      {turn.user && (
+        <UserMessage
+          message={turn.user}
+          toolNames={toolNames}
+          onNavigateToTool={(index) => setHighlightedToolIndex(index)}
+        />
+      )}
 
       {/* Metadata messages inside the turn */}
       {turn.metadata.length > 0 && (
@@ -59,7 +85,12 @@ export function MessageTurn({ turn, highlightedMessageId }: MessageTurnProps) {
       {pairedTools.length > 0 && (
         <div className="space-y-1.5 border-t border-neutral-100 px-4 py-2 dark:border-neutral-800">
           {pairedTools.map((pair, i) => (
-            <ToolCallCard key={i} toolUse={pair.toolUse} toolResult={pair.toolResult} />
+            <ToolCallCard
+              key={i}
+              toolUse={pair.toolUse}
+              toolResult={pair.toolResult}
+              isHighlighted={highlightedToolIndex === i}
+            />
           ))}
         </div>
       )}
