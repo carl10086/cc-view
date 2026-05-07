@@ -1,5 +1,6 @@
 "use client"
 
+import { Eye } from "lucide-react"
 import { UserMessage } from "./user-message"
 import { AssistantMessage } from "./assistant-message"
 import { CompactMessage } from "./compact-message"
@@ -9,13 +10,17 @@ import {
   extractToolResults,
   pairToolCalls,
 } from "@/lib/message-grouping"
+import { cn } from "@/lib/utils"
 import type { MessageTurn } from "@/types/claude"
 
 interface MessageTurnProps {
   turn: MessageTurn
+  isFocused?: boolean
+  showFocusButton?: boolean
+  onFocus?: () => void
 }
 
-export function MessageTurn({ turn }: MessageTurnProps) {
+export function MessageTurn({ turn, isFocused, showFocusButton, onFocus }: MessageTurnProps) {
   const toolUses = turn.assistant ? extractToolUses(turn.assistant) : []
   const toolResults = turn.user ? extractToolResults(turn.user) : []
   const pairedTools = pairToolCalls(toolUses, toolResults)
@@ -26,16 +31,35 @@ export function MessageTurn({ turn }: MessageTurnProps) {
   if (!hasContent) return null
 
   return (
-    <div className="my-4 rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+    <div
+      className={cn(
+        "my-4 rounded-xl border bg-white dark:bg-neutral-950",
+        isFocused
+          ? "border-blue-500 dark:border-blue-400"
+          : "border-neutral-200 dark:border-neutral-800"
+      )}
+    >
       {/* Turn header with timestamp */}
-      {turn.user?.timestamp && (
-        <div className="border-b border-neutral-100 px-4 py-1.5 text-[10px] text-neutral-400 dark:border-neutral-800">
-          {new Date(turn.user.timestamp).toLocaleString([], {
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+      {(turn.user?.timestamp || showFocusButton) && (
+        <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-1.5 text-[10px] text-neutral-400 dark:border-neutral-800">
+          <span>
+            {turn.user?.timestamp &&
+              new Date(turn.user.timestamp).toLocaleString([], {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+          </span>
+          {showFocusButton && (
+            <button
+              title="View context"
+              onClick={onFocus}
+              className="ml-2 rounded p-0.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800"
+            >
+              <Eye className="h-3 w-3" />
+            </button>
+          )}
         </div>
       )}
 

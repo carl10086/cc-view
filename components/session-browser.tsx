@@ -48,6 +48,7 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set())
+  const [focusedTurnId, setFocusedTurnId] = useState<string | null>(null)
   const [sessionToDelete, setSessionToDelete] = useState<SessionInfo | null>(null)
   const [worktreeToDelete, setWorktreeToDelete] = useState<WorktreeInfo | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -61,9 +62,10 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
     }
   }
 
-  // Reset selectedId when worktree changes to avoid stale selection
+  // Reset selectedId and focus when worktree changes to avoid stale selection
   useEffect(() => {
     setSelectedId(currentSessions[0]?.id ?? null)
+    setFocusedTurnId(null)
   }, [effectiveProjectId])
 
   // Defensive: reset selectedId if it no longer exists in currentSessions
@@ -243,6 +245,9 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
     if (!isFullyLoaded || selectedTypes.size === 0) return messages
     return messages.filter((m) => selectedTypes.has(m.type))
   }, [messages, isFullyLoaded, selectedTypes])
+
+  // Focus mode: show full messages when focused, otherwise filtered
+  const displayMessages = focusedTurnId ? messages : filteredMessages
 
   async function handleConfirmDelete() {
     if (!sessionToDelete) return
@@ -454,7 +459,16 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
               </div>
             )}
             {!loading && !error && (
-              <MessageStream ref={scrollRef} messages={filteredMessages} onScrollNearBottom={handleScrollNearBottom} filterActive={isFullyLoaded && selectedTypes.size > 0} hasMore={hasMore} />
+              <MessageStream
+                ref={scrollRef}
+                messages={displayMessages}
+                onScrollNearBottom={handleScrollNearBottom}
+                filterActive={isFullyLoaded && selectedTypes.size > 0}
+                hasMore={hasMore}
+                focusedTurnId={focusedTurnId ?? undefined}
+                onFocusTurn={setFocusedTurnId}
+                onClearFocus={() => setFocusedTurnId(null)}
+              />
             )}
           </div>
 
