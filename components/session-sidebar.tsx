@@ -4,7 +4,7 @@ import { formatDistanceToNow } from "date-fns"
 import { MessageSquare, FileText, Trash2 } from "lucide-react"
 import type { SessionInfo, WorktreeInfo } from "@/types/claude"
 
-const SIDEBAR_PREVIEW_MAX = 50
+const SIDEBAR_PREVIEW_MAX = 80
 
 function truncatePreview(text: string, max: number): string {
   if (text.length <= max) return text
@@ -80,7 +80,7 @@ export function SessionSidebar({
           sessions.map((session) => (
             <div
               key={session.id}
-              className={`group flex cursor-pointer items-center border-b border-neutral-100 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900 ${
+              className={`group relative flex cursor-pointer items-center border-b border-neutral-100 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900 ${
                 selectedId === session.id
                   ? "bg-neutral-100 dark:bg-neutral-800"
                   : ""
@@ -88,7 +88,7 @@ export function SessionSidebar({
             >
               <button
                 onClick={() => onSelect(session.id)}
-                className="flex-1 px-4 py-3 text-left"
+                className="flex-1 min-w-0 px-4 py-3 text-left"
               >
                 <div className="flex items-start gap-2">
                   <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
@@ -119,7 +119,7 @@ export function SessionSidebar({
                     e.stopPropagation()
                     onSessionDelete(session.id)
                   }}
-                  className="mr-3 rounded-md p-1.5 text-neutral-400 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-neutral-400 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-900/30 dark:hover:text-red-400"
                   title="Delete session"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
