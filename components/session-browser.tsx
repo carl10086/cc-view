@@ -331,6 +331,26 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
                 const wt = worktrees.find((w) => w.name === name)
                 if (wt) setWorktreeToDelete(wt)
               }}
+              onBatchDelete={async (sessionIds) => {
+                const results = { success: 0, failed: 0 }
+                for (const id of sessionIds) {
+                  try {
+                    const res = await fetch(
+                      `/api/projects/${encodeURIComponent(effectiveProjectId)}/sessions/${encodeURIComponent(id)}`,
+                      { method: "DELETE" }
+                    )
+                    if (res.status === 204) {
+                      results.success++
+                      setCurrentSessions((prev) => prev.filter((s) => s.id !== id))
+                    } else {
+                      results.failed++
+                    }
+                  } catch {
+                    results.failed++
+                  }
+                }
+                alert(`批量删除完成：成功 ${results.success} 个，失败 ${results.failed} 个`)
+              }}
             />
           </Card>
         </div>
