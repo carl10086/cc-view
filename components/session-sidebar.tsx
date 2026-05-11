@@ -221,12 +221,13 @@ export function SessionSidebar({
         )}
       </div>
       {isBatchMode && selectedSessionIds.size > 0 && (
-        <div className="border-t border-neutral-200 px-4 py-2 dark:border-neutral-800"
+        <div className="sticky bottom-0 border-t border-neutral-200 bg-gradient-to-t from-white via-white to-transparent px-4 py-3 dark:border-neutral-800 dark:from-neutral-950 dark:via-neutral-950"
         >
           <button
             onClick={() => setIsBatchDeleteOpen(true)}
-            className="w-full rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
+            className="w-full flex items-center justify-center gap-1.5 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
           >
+            <Trash2 className="h-4 w-4" />
             删除已选的 {selectedSessionIds.size} 个 session
           </button>
         </div>

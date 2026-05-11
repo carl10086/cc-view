@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { formatDistanceToNow } from "date-fns"
 import { Trash2, AlertTriangle } from "lucide-react"
 import type { SessionInfo } from "@/types/claude"
 
@@ -34,6 +35,8 @@ export function SessionBatchDeleteDialog({
 
   if (!isOpen) return null
 
+  const totalMessages = sessions.reduce((sum, s) => sum + s.messageCount, 0)
+
   return (
     <dialog
       ref={dialogRef}
@@ -59,15 +62,21 @@ export function SessionBatchDeleteDialog({
           </div>
         </div>
 
-        <div className="mt-4 max-h-48 overflow-y-auto rounded-md bg-neutral-50 p-3 text-sm text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+        <div className="mt-4 rounded-md bg-neutral-50 p-3 text-sm text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
           <div className="flex items-center gap-2 mb-2">
             <Trash2 className="h-4 w-4" />
             <span className="font-medium">将要删除的 session：</span>
+            <span className="text-xs text-neutral-400 ml-auto">
+              共 {totalMessages} 条消息
+            </span>
           </div>
-          <ul className="space-y-1">
+          <ul className="space-y-1 max-h-48 overflow-y-auto">
             {sessions.map((session) => (
-              <li key={session.id} className="truncate">
-                • {session.title ?? session.id.slice(0, 8)}
+              <li key={session.id} className="flex items-center justify-between py-1 border-b border-neutral-100 dark:border-neutral-700 last:border-0">
+                <span className="truncate pr-2">{session.title ?? session.id.slice(0, 8)}</span>
+                <span className="text-xs text-neutral-400 shrink-0">
+                  {session.messageCount} 条 · {formatDistanceToNow(session.lastModified, { addSuffix: true })}
+                </span>
               </li>
             ))}
           </ul>
