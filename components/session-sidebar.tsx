@@ -52,6 +52,8 @@ export function SessionSidebar({
       "1d": 24 * 60 * 60 * 1000,
       "3d": 3 * 24 * 60 * 60 * 1000,
       "1w": 7 * 24 * 60 * 60 * 1000,
+      "2w": 14 * 24 * 60 * 60 * 1000,
+      "1m": 30 * 24 * 60 * 60 * 1000,
     }
     const threshold = thresholds[timeFilter]
     return sessions.filter((s) => now - s.lastModified.getTime() > threshold)
