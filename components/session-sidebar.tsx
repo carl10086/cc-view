@@ -9,6 +9,14 @@ import type { SessionInfo, WorktreeInfo } from "@/types/claude"
 
 const SIDEBAR_PREVIEW_MAX = 80
 
+const TIME_THRESHOLDS: Record<string, number> = {
+  "1d": 24 * 60 * 60 * 1000,
+  "3d": 3 * 24 * 60 * 60 * 1000,
+  "1w": 7 * 24 * 60 * 60 * 1000,
+  "2w": 14 * 24 * 60 * 60 * 1000,
+  "1m": 30 * 24 * 60 * 60 * 1000,
+}
+
 function truncatePreview(text: string, max: number): string {
   if (text.length <= max) return text
   return text.slice(0, max).trim() + "…"
@@ -47,26 +55,22 @@ export function SessionSidebar({
 
   const filteredSessions = useMemo(() => {
     if (!isBatchMode) return sessions
+    const threshold = TIME_THRESHOLDS[timeFilter]
+    if (!threshold) return sessions
     const now = Date.now()
-    const thresholds: Record<string, number> = {
-      "1d": 24 * 60 * 60 * 1000,
-      "3d": 3 * 24 * 60 * 60 * 1000,
-      "1w": 7 * 24 * 60 * 60 * 1000,
-      "2w": 14 * 24 * 60 * 60 * 1000,
-      "1m": 30 * 24 * 60 * 60 * 1000,
-    }
-    const threshold = thresholds[timeFilter]
     return sessions.filter((s) => now - s.lastModified.getTime() > threshold)
   }, [sessions, timeFilter, isBatchMode])
+
+  const sessionsToShow = isBatchMode ? filteredSessions : sessions
+  const selectedSessions = useMemo(
+    () => filteredSessions.filter((s) => selectedSessionIds.has(s.id)),
+    [filteredSessions, selectedSessionIds]
+  )
 
   const handleToggleSession = (sessionId: string) => {
     setSelectedSessionIds((prev) => {
       const next = new Set(prev)
-      if (next.has(sessionId)) {
-        next.delete(sessionId)
-      } else {
-        next.add(sessionId)
-      }
+      next.has(sessionId) ? next.delete(sessionId) : next.add(sessionId)
       return next
     })
   }
@@ -161,7 +165,7 @@ export function SessionSidebar({
             <p className="text-sm text-neutral-500">No sessions found</p>
           </div>
         ) : (
-          (isBatchMode ? filteredSessions : sessions).map((session) => (
+          sessionsToShow.map((session) => (
             <div
               key={session.id}
               className={`group relative flex cursor-pointer items-center border-b border-neutral-100 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900 ${
@@ -235,7 +239,7 @@ export function SessionSidebar({
         </div>
       )}
       <SessionBatchDeleteDialog
-        sessions={filteredSessions.filter((s) => selectedSessionIds.has(s.id))}
+        sessions={selectedSessions}
         isOpen={isBatchDeleteOpen}
         isDeleting={isDeleting}
         onConfirm={handleBatchDeleteConfirm}
