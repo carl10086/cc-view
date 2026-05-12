@@ -1,6 +1,19 @@
 import { describe, it, expect } from "vitest"
-import { extractCompactMessages, extractCompactBoundaryMessages, groupMessagesIntoTurns, pairToolCalls } from "./message-grouping"
+import { extractCompactMessages, extractCompactBoundaryMessages, pairToolCalls } from "./message-grouping"
 import type { SessionMessage } from "@/types/claude"
+
+function withKind(message: Omit<SessionMessage, "kind" | "filterType">): SessionMessage {
+  const kind = message.type === "user"
+    ? "user"
+    : message.type === "assistant"
+      ? "assistant"
+      : "metadata"
+  return {
+    ...message,
+    kind,
+    filterType: kind === "metadata" ? message.type : kind,
+  }
+}
 
 describe("extractCompactMessages", () => {
   const mockMessages: SessionMessage[] = [
@@ -39,7 +52,7 @@ describe("extractCompactMessages", () => {
       parentUuid: "msg-4",
       raw: { attachment: { type: "skill_listing" } },
     },
-  ]
+  ].map(withKind)
 
   it("returns only non-user/non-assistant messages", () => {
     const result = extractCompactMessages(mockMessages)
@@ -77,7 +90,7 @@ describe("extractCompactMessages", () => {
         parentUuid: "msg-1",
         raw: {},
       },
-    ]
+    ].map(withKind)
     const result = extractCompactMessages(userOnly)
     expect(result.length).toBe(0)
   })
@@ -113,7 +126,7 @@ describe("extractCompactBoundaryMessages", () => {
       parentUuid: null,
       raw: { attachment: { type: "skill_listing" } },
     },
-  ]
+  ].map(withKind)
 
   it("returns only compact_boundary system messages", () => {
     const result = extractCompactBoundaryMessages(mockMessages)
@@ -138,7 +151,7 @@ describe("extractCompactBoundaryMessages", () => {
         parentUuid: null,
         raw: { subtype: "informational" },
       },
-    ]
+    ].map(withKind)
     const result = extractCompactBoundaryMessages(noBoundary)
     expect(result.length).toBe(0)
   })

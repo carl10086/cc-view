@@ -115,6 +115,7 @@ export function groupMessagesIntoTurns(messages: SessionMessage[]): MessageTurn[
         id: message.id,
         user: message,
         assistant: null,
+        toolResults: [],
         metadata: [],
       }
     } else if (message.type === "assistant") {
@@ -127,6 +128,7 @@ export function groupMessagesIntoTurns(messages: SessionMessage[]): MessageTurn[
             id: message.id,
             user: null,
             assistant: message,
+            toolResults: [],
             metadata: [],
           }
         } else {
@@ -138,6 +140,7 @@ export function groupMessagesIntoTurns(messages: SessionMessage[]): MessageTurn[
           id: message.id,
           user: null,
           assistant: message,
+          toolResults: [],
           metadata: [],
         }
       }
@@ -151,6 +154,7 @@ export function groupMessagesIntoTurns(messages: SessionMessage[]): MessageTurn[
           id: message.id,
           user: null,
           assistant: null,
+          toolResults: [],
           metadata: [message],
         })
       }

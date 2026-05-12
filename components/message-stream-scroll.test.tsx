@@ -5,6 +5,19 @@ import { MessageStream } from "./message-stream"
 import type { MessageStreamHandle } from "./message-stream"
 import type { SessionMessage } from "@/types/claude"
 
+function withKind(message: Omit<SessionMessage, "kind" | "filterType">): SessionMessage {
+  const kind = message.type === "user"
+    ? "user"
+    : message.type === "assistant"
+      ? "assistant"
+      : "metadata"
+  return {
+    ...message,
+    kind,
+    filterType: kind === "metadata" ? message.type : kind,
+  }
+}
+
 describe("MessageStream scrollToMessage", () => {
   const mockMessages: SessionMessage[] = [
     {
@@ -28,7 +41,7 @@ describe("MessageStream scrollToMessage", () => {
       parentUuid: "msg-1",
       raw: { message: { role: "assistant", content: "Hi" } },
     },
-  ]
+  ].map(withKind)
 
   it("exposes scrollToMessage via ref", () => {
     const ref = createRef<MessageStreamHandle>()
