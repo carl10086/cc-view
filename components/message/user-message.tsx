@@ -27,11 +27,11 @@ export function UserMessage({ message }: UserMessageProps) {
         {/* Text content — 蓝色气泡 */}
         {hasText && (
           <div className="rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-2.5 text-white shadow-sm">
-            {textItems.map((item, i) => (
-              <p key={i} className="whitespace-pre-wrap text-sm leading-relaxed">
-                {item.text}
-              </p>
-            ))}
+            <div className="whitespace-pre-wrap text-sm leading-relaxed">
+              {textItems.map((item, i) => (
+                <span key={i}>{item.text}</span>
+              ))}
+            </div>
           </div>
         )}
 
