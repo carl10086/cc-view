@@ -2,6 +2,9 @@
 
 import { useState } from "react"
 import { Bot } from "lucide-react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import rehypeHighlight from "rehype-highlight"
 import { ThinkingBlock } from "./thinking-block"
 import { formatTime } from "./format-time"
 import type { SessionMessage } from "@/types/claude"
@@ -33,14 +36,15 @@ export function AssistantMessage({ message }: AssistantMessageProps) {
 
         {/* Text content */}
         {textItems.length > 0 && (
-          <div className="rounded-2xl rounded-tl-sm bg-neutral-100 px-4 py-2.5 shadow-sm dark:bg-neutral-800">
+          <div className="rounded-2xl rounded-tl-sm bg-neutral-100 px-4 py-2.5 shadow-sm dark:bg-neutral-800 prose prose-sm dark:prose-invert max-w-none">
             {textItems.map((item, i) => (
-              <p
+              <ReactMarkdown
                 key={i}
-                className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-800 dark:text-neutral-200"
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeHighlight]}
               >
                 {String(item.text ?? "")}
-              </p>
+              </ReactMarkdown>
             ))}
           </div>
         )}
