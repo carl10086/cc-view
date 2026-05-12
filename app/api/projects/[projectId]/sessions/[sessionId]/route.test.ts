@@ -29,7 +29,15 @@ describe("GET /api/projects/[projectId]/sessions/[sessionId]", () => {
   it("returns session messages with default params", async () => {
     mockGetSessionMessages.mockResolvedValue({
       title: "Test Session",
-      messages: [{ id: "1", type: "user", timestamp: null, parentUuid: null, raw: { type: "user" } }],
+      messages: [{
+        id: "1",
+        type: "user",
+        kind: "user",
+        filterType: "user",
+        timestamp: null,
+        parentUuid: null,
+        raw: { type: "user" },
+      }],
       total: 1,
       offset: 0,
       limit: 1000,

@@ -4,16 +4,13 @@ import { useState } from "react"
 import { User } from "lucide-react"
 import { formatTime } from "./format-time"
 import { CompactMessage } from "./compact-message"
-import { ToolResultCard } from "./tool-result-card"
 import type { SessionMessage } from "@/types/claude"
 
 interface UserMessageProps {
   message: SessionMessage
-  toolNames?: string[]
-  onNavigateToTool?: (toolIndex: number) => void
 }
 
-export function UserMessage({ message, toolNames, onNavigateToTool }: UserMessageProps) {
+export function UserMessage({ message }: UserMessageProps) {
   const [showRaw, setShowRaw] = useState(false)
   const isMeta = (message.raw as Record<string, unknown>)?.isMeta === true
 
@@ -21,9 +18,8 @@ export function UserMessage({ message, toolNames, onNavigateToTool }: UserMessag
     return <CompactMessage message={message} />
   }
 
-  const { textItems, toolResultItems } = extractUserContent(message)
+  const textItems = extractUserContent(message)
   const hasText = textItems.length > 0
-  const hasToolResults = toolResultItems.length > 0
 
   return (
     <div className="group flex items-start justify-end gap-2 px-4 py-3">
@@ -35,20 +31,6 @@ export function UserMessage({ message, toolNames, onNavigateToTool }: UserMessag
               <p key={i} className="whitespace-pre-wrap text-sm leading-relaxed">
                 {item.text}
               </p>
-            ))}
-          </div>
-        )}
-
-        {/* Tool results — 独立卡片 */}
-        {hasToolResults && (
-          <div className="space-y-1.5">
-            {toolResultItems.map((item, i) => (
-              <ToolResultCard
-                key={i}
-                toolResult={item.result}
-                toolName={toolNames?.[i]}
-                onNavigateToTool={() => onNavigateToTool?.(i)}
-              />
             ))}
           </div>
         )}
@@ -76,34 +58,28 @@ export function UserMessage({ message, toolNames, onNavigateToTool }: UserMessag
   )
 }
 
-function extractUserContent(message: SessionMessage): {
-  textItems: Array<{ text: string }>
-  toolResultItems: Array<{ result: Record<string, unknown> }>
-} {
+function extractUserContent(message: SessionMessage): Array<{ text: string }> {
   const raw = message.raw as Record<string, unknown>
   const msg = raw.message as Record<string, unknown> | undefined
-  if (!msg) return { textItems: [], toolResultItems: [] }
+  if (!msg) return []
 
   const content = msg.content
   if (typeof content === "string") {
-    return { textItems: [{ text: content }], toolResultItems: [] }
+    return [{ text: content }]
   }
   if (!Array.isArray(content)) {
-    return { textItems: [], toolResultItems: [] }
+    return []
   }
 
   const textItems: Array<{ text: string }> = []
-  const toolResultItems: Array<{ result: Record<string, unknown> }> = []
 
   for (const item of content as Array<Record<string, unknown>>) {
     if (item.type === "text" && item.text) {
       textItems.push({ text: String(item.text) })
-    } else if (item.type === "tool_result") {
-      toolResultItems.push({ result: item })
     }
   }
 
-  return { textItems, toolResultItems }
+  return textItems
 }
 
 function RawJsonPanel({ raw }: { raw: unknown }) {

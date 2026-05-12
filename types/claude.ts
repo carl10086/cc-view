@@ -19,9 +19,17 @@ export interface SessionInfo {
   lastModified: Date
 }
 
+export type SessionMessageKind =
+  | "user"
+  | "assistant"
+  | "tool-result"
+  | "metadata"
+
 export interface SessionMessage {
   id: string
   type: string
+  kind: SessionMessageKind
+  filterType: string
   timestamp: Date | null
   parentUuid: string | null
   raw: unknown
@@ -31,5 +39,14 @@ export interface MessageTurn {
   id: string
   user: SessionMessage | null
   assistant: SessionMessage | null
+  toolResults: SessionMessage[]
   metadata: SessionMessage[]
+}
+
+export interface UserTurnNavItem {
+  turnIndex: number
+  messageId: string
+  preview: string
+  timestamp: Date | null
+  offset: number
 }

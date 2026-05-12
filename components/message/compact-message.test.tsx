@@ -7,6 +7,8 @@ describe("CompactMessage", () => {
   const mockMessage: SessionMessage = {
     id: "msg-1",
     type: "attachment",
+    kind: "metadata",
+    filterType: "attachment",
     timestamp: new Date("2024-01-01T00:00:00Z"),
     parentUuid: null,
     raw: { attachment: { type: "hook_success", hookName: "SessionStart" } },

@@ -2,6 +2,7 @@ import { promises as fs, statSync, type Dirent } from "fs"
 import path from "path"
 import os from "os"
 import { WORKTREE_MARKER, buildWorktreeProjectId } from "./worktree"
+import { normalizeRawSessionMessage } from "./message-semantics"
 import type { ProjectInfo, SessionInfo, SessionMessage, WorktreeInfo } from "@/types/claude"
 
 const PROJECTS_DIR = path.join(os.homedir(), ".claude", "projects")
@@ -646,13 +647,9 @@ export async function getSessionMessages(
         if (obj.type === "ai-title" && obj.aiTitle && !title) {
           title = obj.aiTitle
         }
-        allMessages.push({
-          id: obj.uuid ? `${obj.uuid}-${allMessages.length}` : `${allMessages.length}`,
-          type: obj.type || "unknown",
-          timestamp: obj.timestamp ? new Date(obj.timestamp) : null,
-          parentUuid: obj.parentUuid || null,
-          raw: obj,
-        })
+        allMessages.push(
+          ...normalizeRawSessionMessage(obj, lineIdx, allMessages.length)
+        )
       } catch {
         // skip invalid lines
       }

@@ -4,10 +4,10 @@ import { useState, useMemo } from "react"
 import { ChevronRight, ChevronDown, PanelLeftOpen, PanelLeftClose } from "lucide-react"
 import { typeConfig } from "./compact-message"
 import { formatTime } from "./format-time"
-import type { CompactMessageNavItem } from "@/lib/message-grouping"
+import type { MessageNavItem } from "@/lib/message-grouping"
 
 interface MessageNavPanelProps {
-  items: CompactMessageNavItem[]
+  items: MessageNavItem[]
   onNavigate: (messageId: string) => void
   isCollapsed?: boolean
   onToggleCollapse?: () => void
@@ -25,7 +25,7 @@ export function MessageNavPanel({
   const isCollapsed = externalCollapsed ?? internalCollapsed
 
   const grouped = useMemo(() => {
-    const map = new Map<string, CompactMessageNavItem[]>()
+    const map = new Map<string, MessageNavItem[]>()
     for (const item of items) {
       const list = map.get(item.type) ?? []
       list.push(item)
@@ -34,12 +34,10 @@ export function MessageNavPanel({
     return map
   }, [items])
 
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    () => new Set(grouped.keys())
-  )
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
   function toggleGroup(type: string) {
-    setExpandedGroups((prev) => {
+    setCollapsedGroups((prev) => {
       const next = new Set(prev)
       if (next.has(type)) {
         next.delete(type)
@@ -97,7 +95,7 @@ export function MessageNavPanel({
                   color: "text-neutral-400",
                   bgColor: "bg-neutral-50 dark:bg-neutral-900/50",
                 }
-            const isExpanded = expandedGroups.has(type)
+            const isExpanded = !collapsedGroups.has(type)
 
             return (
               <div key={type} className="border-b border-neutral-100 last:border-b-0 dark:border-neutral-800">
