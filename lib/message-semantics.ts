@@ -56,8 +56,89 @@ function isToolResultBlock(block: RawRecord): boolean {
   return block.type === "tool_result"
 }
 
+function toRecordBlocks(content: unknown[]): RawRecord[] {
+  return content
+    .map((block) => asRecord(block))
+    .filter((block): block is RawRecord => block !== undefined)
+}
+
 function getMetadataFilterType(raw: RawRecord): string {
   return typeof raw.type === "string" ? raw.type : "unknown"
+}
+
+function buildUserMessage(
+  raw: RawRecord,
+  lineIndex: number,
+  messageIndex: number,
+  suffix?: string
+): SessionMessage {
+  return buildMessage(raw, lineIndex, messageIndex, "user", "user", suffix)
+}
+
+function buildToolResultMessage(
+  raw: RawRecord,
+  lineIndex: number,
+  messageIndex: number,
+  suffix: string
+): SessionMessage {
+  return buildMessage(
+    raw,
+    lineIndex,
+    messageIndex,
+    "tool-result",
+    "tool-result",
+    suffix
+  )
+}
+
+function normalizeUserContent(
+  raw: RawRecord,
+  lineIndex: number,
+  messageIndex: number,
+  content: unknown
+): SessionMessage[] {
+  if (typeof content === "string") {
+    return [buildUserMessage(raw, lineIndex, messageIndex)]
+  }
+
+  if (!Array.isArray(content)) {
+    return [buildUserMessage(raw, lineIndex, messageIndex)]
+  }
+
+  const blocks = toRecordBlocks(content)
+  const textBlocks = blocks.filter(isTextBlock)
+  const toolResultBlocks = blocks.filter(isToolResultBlock)
+
+  if (toolResultBlocks.length === 0 && textBlocks.length > 0) {
+    return [buildUserMessage(raw, lineIndex, messageIndex)]
+  }
+
+  if (textBlocks.length === 0 && toolResultBlocks.length > 0) {
+    return toolResultBlocks.map((_, index) =>
+      buildToolResultMessage(raw, lineIndex, messageIndex, `tool-result-${index}`)
+    )
+  }
+
+  if (textBlocks.length === 0 && toolResultBlocks.length === 0) {
+    return [buildUserMessage(raw, lineIndex, messageIndex)]
+  }
+
+  return blocks.flatMap((block, index) => {
+    if (isTextBlock(block)) {
+      return [buildUserMessage(raw, lineIndex, messageIndex, `text-${index}`)]
+    }
+    if (isToolResultBlock(block)) {
+      return [
+        buildToolResultMessage(
+          raw,
+          lineIndex,
+          messageIndex,
+          `tool-result-${index}`
+        ),
+      ]
+    }
+    return []
+  })
 }
 
 export function normalizeRawSessionMessage(
@@ -76,64 +157,7 @@ export function normalizeRawSessionMessage(
   }
 
   if (rawType === "user" || role === "user") {
-    if (typeof content === "string") {
-      return [buildMessage(raw, lineIndex, messageIndex, "user", "user")]
-    }
-
-    if (Array.isArray(content)) {
-      const blocks = content.map((block) => asRecord(block)).filter(Boolean) as RawRecord[]
-      const textBlocks = blocks.filter(isTextBlock)
-      const toolResultBlocks = blocks.filter(isToolResultBlock)
-
-      if (toolResultBlocks.length === 0 && textBlocks.length > 0) {
-        return [buildMessage(raw, lineIndex, messageIndex, "user", "user")]
-      }
-
-      if (textBlocks.length === 0 && toolResultBlocks.length > 0) {
-        return toolResultBlocks.map((_, index) =>
-          buildMessage(
-            raw,
-            lineIndex,
-            messageIndex,
-            "tool-result",
-            "tool-result",
-            `tool-result-${index}`
-          )
-        )
-      }
-
-      if (textBlocks.length > 0 || toolResultBlocks.length > 0) {
-        return blocks.flatMap((block, index) => {
-          if (isTextBlock(block)) {
-            return [
-              buildMessage(
-                raw,
-                lineIndex,
-                messageIndex,
-                "user",
-                "user",
-                `text-${index}`
-              ),
-            ]
-          }
-          if (isToolResultBlock(block)) {
-            return [
-              buildMessage(
-                raw,
-                lineIndex,
-                messageIndex,
-                "tool-result",
-                "tool-result",
-                `tool-result-${index}`
-              ),
-            ]
-          }
-          return []
-        })
-      }
-    }
-
-    return [buildMessage(raw, lineIndex, messageIndex, "user", "user")]
+    return normalizeUserContent(raw, lineIndex, messageIndex, content)
   }
 
   return [
@@ -155,9 +179,7 @@ export function getMessagePreview(message: SessionMessage, maxLength = 60): stri
   if (typeof content === "string") {
     preview = content
   } else if (Array.isArray(content)) {
-    preview = content
-      .map((block) => asRecord(block))
-      .filter((block): block is RawRecord => block !== undefined)
+    preview = toRecordBlocks(content)
       .filter(isTextBlock)
       .map((block) => String(block.text))
       .join(" ")

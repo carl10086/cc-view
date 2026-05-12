@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { getProjectById, getSessions, getSessionMessages, deduplicateProjectNames, deleteProject, readSessionPreview } from "./claude-data"
+import { extractMessageNavItems, groupMessagesIntoTurns } from "./message-grouping"
 import { buildWorktreeProjectId } from "./worktree"
 import fs from "fs"
 import os from "os"
@@ -579,4 +580,71 @@ describe("readSessionPreview", () => {
       cleanup(filePath)
     }
   })
+})
+
+describe("getSessionMessages with real Claude session files", () => {
+  const realProjectId = "-Users-carlyu-soft-projects-read"
+  const realSessionId = "c2a20ceb-dbb1-4fbf-90f0-b2c587473153.jsonl"
+  const realSessionPath = path.join(
+    os.homedir(),
+    ".claude",
+    "projects",
+    realProjectId,
+    realSessionId
+  )
+
+  it.runIf(fs.existsSync(realSessionPath))(
+    "keeps real tool_result records out of user turns",
+    async () => {
+      const result = await getSessionMessages(realProjectId, realSessionId, 0, 60, "asc")
+      expect(result).not.toBeNull()
+
+      const messages = result!.messages
+      const toolResultMessages = messages.filter((message) => message.kind === "tool-result")
+
+      expect(toolResultMessages.length).toBeGreaterThan(0)
+      expect(toolResultMessages.every((message) => message.type === "user")).toBe(true)
+      expect(
+        toolResultMessages.some((message) =>
+          JSON.stringify(message.raw).includes("Network.enable timed out")
+        )
+      ).toBe(true)
+
+      const turns = groupMessagesIntoTurns(messages)
+      const toolResultIdsInUserSlot = new Set(
+        turns
+          .map((turn) => turn.user)
+          .filter((message): message is NonNullable<typeof message> => message !== null)
+          .filter((message) => message.kind === "tool-result")
+          .map((message) => message.id)
+      )
+
+      expect(toolResultIdsInUserSlot.size).toBe(0)
+      expect(turns.some((turn) => turn.toolResults.length > 0)).toBe(true)
+    }
+  )
+
+  const realCompactSessionId = "77b3830c-13cd-4c75-99e1-27dd2cfe9e0f.jsonl"
+  const realCompactSessionPath = path.join(
+    os.homedir(),
+    ".claude",
+    "projects",
+    realProjectId,
+    realCompactSessionId
+  )
+
+  it.runIf(fs.existsSync(realCompactSessionPath))(
+    "builds navigation from both real user turns and compact boundaries",
+    async () => {
+      const result = await getSessionMessages(realProjectId, realCompactSessionId, 0, 500, "asc")
+      expect(result).not.toBeNull()
+
+      const navItems = extractMessageNavItems(result!.messages)
+      const navTypes = new Set(navItems.map((item) => item.type))
+
+      expect(navTypes.has("user-turn")).toBe(true)
+      expect(navTypes.has("compact_boundary")).toBe(true)
+      expect(navItems.filter((item) => item.type === "tool-result")).toHaveLength(0)
+    }
+  )
 })

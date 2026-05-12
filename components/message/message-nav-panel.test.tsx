@@ -1,10 +1,17 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
 import { MessageNavPanel } from "./message-nav-panel"
-import type { CompactMessageNavItem } from "@/lib/message-grouping"
+import type { MessageNavItem } from "@/lib/message-grouping"
 
 describe("MessageNavPanel", () => {
-  const mockItems: CompactMessageNavItem[] = [
+  const mockItems: MessageNavItem[] = [
+    {
+      turnIndex: 0,
+      messageId: "user-1",
+      type: "user-turn",
+      preview: "#1 First user input",
+      timestamp: new Date("2024-01-01T00:00:00Z"),
+    },
     {
       turnIndex: 0,
       messageId: "msg-1",
@@ -35,12 +42,14 @@ describe("MessageNavPanel", () => {
 
   it("groups items by type", () => {
     render(<MessageNavPanel items={mockItems} onNavigate={vi.fn()} />)
+    expect(screen.getByLabelText("turns · 1")).toBeDefined()
     expect(screen.getByLabelText("attach · 2")).toBeDefined()
     expect(screen.getByLabelText("system · 1")).toBeDefined()
   })
 
   it("renders item previews and timestamps", () => {
     render(<MessageNavPanel items={mockItems} onNavigate={vi.fn()} />)
+    expect(screen.getByText("#1 First user input")).toBeDefined()
     expect(screen.getByText("hook_success · SessionStart")).toBeDefined()
     expect(screen.getByText("compact · 120ms")).toBeDefined()
   })
@@ -65,7 +74,7 @@ describe("MessageNavPanel", () => {
 
   it("truncates long previews to 30 characters", () => {
     const longPreview = "a".repeat(50)
-    const items: CompactMessageNavItem[] = [
+    const items: MessageNavItem[] = [
       {
         turnIndex: 0,
         messageId: "msg-long",

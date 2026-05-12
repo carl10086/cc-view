@@ -46,6 +46,11 @@ export const typeConfig: Record<
     color: "text-green-600",
     bgColor: "bg-green-50 dark:bg-green-950/50",
   },
+  "user-turn": {
+    label: "turns",
+    color: "text-blue-600",
+    bgColor: "bg-blue-50 dark:bg-blue-950/50",
+  },
   "queue-operation": {
     label: "queue",
     color: "text-blue-600",

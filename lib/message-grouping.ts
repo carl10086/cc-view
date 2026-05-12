@@ -1,11 +1,43 @@
 import type { SessionMessage, MessageTurn } from "@/types/claude"
+import { getMessagePreview } from "./message-semantics"
 
-export interface CompactMessageNavItem {
+export interface MessageNavItem {
   turnIndex: number
   messageId: string
   type: string
   preview: string
   timestamp: Date | null
+}
+
+export type CompactMessageNavItem = MessageNavItem
+
+export function extractUserTurnNavItems(messages: SessionMessage[]): MessageNavItem[] {
+  const turns = groupMessagesIntoTurns(messages)
+  const result: MessageNavItem[] = []
+  let userTurnIndex = 0
+
+  for (let turnIndex = 0; turnIndex < turns.length; turnIndex++) {
+    const userMessage = turns[turnIndex].user
+    if (!userMessage) continue
+
+    userTurnIndex += 1
+    result.push({
+      turnIndex,
+      messageId: userMessage.id,
+      type: "user-turn",
+      preview: `#${userTurnIndex} ${getMessagePreview(userMessage) || "User input"}`,
+      timestamp: userMessage.timestamp,
+    })
+  }
+
+  return result
+}
+
+export function extractMessageNavItems(messages: SessionMessage[]): MessageNavItem[] {
+  return [
+    ...extractUserTurnNavItems(messages),
+    ...extractCompactBoundaryMessages(messages),
+  ]
 }
 
 export function extractCompactMessages(messages: SessionMessage[]): CompactMessageNavItem[] {
@@ -95,9 +127,10 @@ function getCompactPreview(message: SessionMessage): string {
  * Group flat messages into conversation turns.
  *
  * Rules:
- * - "user" message starts a new turn
- * - "assistant" message joins the current turn
- * - Other types join current turn's metadata if a turn is open;
+ * - "user" kind starts a new turn
+ * - "assistant" kind joins the current turn
+ * - "tool-result" kind joins current turn's toolResults
+ * - Metadata joins current turn's metadata if a turn is open;
  *   otherwise they become a standalone turn
  */
 export function groupMessagesIntoTurns(messages: SessionMessage[]): MessageTurn[] {
@@ -105,44 +138,32 @@ export function groupMessagesIntoTurns(messages: SessionMessage[]): MessageTurn[
   let current: MessageTurn | null = null
 
   for (const message of messages) {
-    if (message.type === "user") {
+    if (message.kind === "user") {
       // Close previous turn if exists
       if (current) {
         turns.push(current)
       }
       // Start new turn with this user message
-      current = {
-        id: message.id,
-        user: message,
-        assistant: null,
-        toolResults: [],
-        metadata: [],
-      }
-    } else if (message.type === "assistant") {
+      current = createTurn(message.id, { user: message })
+    } else if (message.kind === "assistant") {
       if (current) {
         // If current turn already has an assistant, close it and start new turn
         // (handles edge case of consecutive assistants)
         if (current.assistant) {
           turns.push(current)
-          current = {
-            id: message.id,
-            user: null,
-            assistant: message,
-            toolResults: [],
-            metadata: [],
-          }
+          current = createTurn(message.id, { assistant: message })
         } else {
           current.assistant = message
         }
       } else {
         // Assistant without preceding user → standalone turn
-        current = {
-          id: message.id,
-          user: null,
-          assistant: message,
-          toolResults: [],
-          metadata: [],
-        }
+        current = createTurn(message.id, { assistant: message })
+      }
+    } else if (message.kind === "tool-result") {
+      if (current) {
+        current.toolResults.push(message)
+      } else {
+        turns.push(createTurn(message.id, { toolResults: [message] }))
       }
     } else {
       // Compact/metadata messages
@@ -150,13 +171,7 @@ export function groupMessagesIntoTurns(messages: SessionMessage[]): MessageTurn[
         current.metadata.push(message)
       } else {
         // No open turn → standalone metadata turn
-        turns.push({
-          id: message.id,
-          user: null,
-          assistant: null,
-          toolResults: [],
-          metadata: [message],
-        })
+        turns.push(createTurn(message.id, { metadata: [message] }))
       }
     }
   }
@@ -167,6 +182,20 @@ export function groupMessagesIntoTurns(messages: SessionMessage[]): MessageTurn[
   }
 
   return turns
+}
+
+function createTurn(
+  id: string,
+  fields: Partial<Omit<MessageTurn, "id">>
+): MessageTurn {
+  return {
+    id,
+    user: null,
+    assistant: null,
+    toolResults: [],
+    metadata: [],
+    ...fields,
+  }
 }
 
 /**

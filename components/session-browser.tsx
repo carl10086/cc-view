@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { SessionSidebar } from "./session-sidebar"
 import { MessageStream, type MessageStreamHandle } from "./message-stream"
 import { MessageNavPanel } from "./message/message-nav-panel"
-import { extractCompactBoundaryMessages } from "@/lib/message-grouping"
+import { extractMessageNavItems } from "@/lib/message-grouping"
 import { SessionDeleteDialog } from "./session-delete-dialog"
 import { WorktreeDeleteDialog } from "./worktree-delete-dialog"
 import { buildWorktreeProjectId } from "@/lib/worktree"
@@ -240,20 +240,20 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
   const availableTypes = useMemo(() => {
     if (!isFullyLoaded) return []
     const types = new Set<string>()
-    messages.forEach((m) => types.add(m.type))
+    messages.forEach((m) => types.add(m.filterType))
     return Array.from(types).sort()
   }, [messages, isFullyLoaded])
 
   // Derived: filtered messages
   const filteredMessages = useMemo(() => {
     if (!isFullyLoaded || selectedTypes.size === 0) return messages
-    return messages.filter((m) => selectedTypes.has(m.type))
+    return messages.filter((m) => selectedTypes.has(m.filterType))
   }, [messages, isFullyLoaded, selectedTypes])
 
-  // Derived: compact boundary navigation items (only /compact markers)
-  const compactNavItems = useMemo(() => {
+  // Derived: user turn navigation plus compact boundary markers.
+  const navItems = useMemo(() => {
     if (!isFullyLoaded) return []
-    return extractCompactBoundaryMessages(filteredMessages)
+    return extractMessageNavItems(filteredMessages)
   }, [filteredMessages, isFullyLoaded])
 
   function handleNavigate(messageId: string) {
@@ -497,7 +497,7 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
             {total > 0 && (
               <div className="hidden lg:block">
                 <MessageNavPanel
-                  items={compactNavItems}
+                  items={navItems}
                   onNavigate={handleNavigate}
                   disabledHint={!isFullyLoaded ? "Load all to enable navigation" : undefined}
                 />
