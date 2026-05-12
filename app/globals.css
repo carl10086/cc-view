@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 :root {
   --background: #ffffff;
@@ -23,4 +24,69 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Markdown prose styles - customized for dark mode */
+.prose {
+  color: var(--foreground);
+  max-width: none;
+}
+
+.prose :where(h1, h2, h3, h4, h5, h6) {
+  color: var(--foreground);
+}
+
+.dark .prose {
+  color: #e5e5e5;
+}
+
+.dark .prose :where(h1, h2, h3, h4, h5, h6) {
+  color: #e5e5e5;
+}
+
+/* Dark mode code block background */
+.dark .prose pre {
+  background: #1e293b;
+}
+
+.dark .prose code {
+  background: #334155;
+}
+
+/* Dark mode blockquote */
+.dark .prose blockquote {
+  border-left-color: #475569;
+  color: #94a3b8;
+}
+
+/* highlight.js syntax highlighting overrides for dark mode */
+.dark .hljs-keyword,
+.dark .hljs-selector-tag,
+.dark .hljs-title,
+.dark .hljs-section,
+.dark .hljs-doctag,
+.dark .hljs-name,
+.dark .hljs-strong {
+  color: #c084fc;
+}
+
+.dark .hljs-comment {
+  color: #6b7280;
+}
+
+.dark .hljs-string,
+.dark .hljs-title.class_,
+.dark .hljs-title.class_.inherited__,
+.dark .hljs-attr,
+.dark .hljs-symbol,
+.dark .hljs-bullet,
+.dark .hljs-addition,
+.dark .hljs-variable,
+.dark .hljs-template-tag,
+.dark .hljs-template-variable {
+  color: #86efac;
+}
+
+.dark .hljs-number {
+  color: #fbbf24;
 }
