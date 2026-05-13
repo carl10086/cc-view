@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-ha-style="soft-saas">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spec: 在 Messages 页面添加复制 Session ID 按钮</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f7fb;
+    --surface: #ffffff;
+    --surface-container-lowest: #ffffff;
+    --surface-container-low: #f8f9fc;
+    --surface-container: #f0f2f7;
+    --surface-container-high: #e8ebf2;
+    --fg-1: #172033;
+    --fg-2: #3d4a63;
+    --fg-muted: #6b7288;
+    --border: rgba(106, 119, 150, 0.13);
+    --border-strong: rgba(106, 119, 150, 0.25);
+    --primary: #5b7cf6;
+    --primary-container: #4a6be0;
+    --secondary: #aebcff;
+    --tertiary: #65d6ce;
+    --accent-cyan: #65d6ce;
+    --accent-pink: #e978ae;
+    --accent-yellow: #f6c445;
+    --green: #10b981;
+    --red: #ef4444;
+    --yellow: #f6c445;
+    --font-headline: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+    --font-body: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'SF Mono', 'Menlo', ui-monospace, monospace;
+    --space-xs: 4px; --space-sm: 8px; --space-md: 12px;
+    --space-lg: 16px; --space-xl: 20px; --space-2xl: 24px;
+    --space-3xl: 32px; --space-4xl: 48px; --space-5xl: 64px;
+    --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
+    --radius-xl: 20px; --radius-2xl: 28px; --radius-pill: 9999px;
+    --shadow-sm: 0 1px 2px rgba(23, 32, 51, 0.04);
+    --shadow-md: 0 4px 12px rgba(23, 32, 51, 0.08);
+    --shadow-lg: 0 8px 24px rgba(23, 32, 51, 0.12);
+    --shadow-accent: 0 8px 24px rgba(91, 124, 246, 0.15);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420;
+      --surface: #1a2035;
+      --surface-container-lowest: #1a2035;
+      --surface-container-low: #1e2640;
+      --surface-container: #242d4a;
+      --surface-container-high: #2a3555;
+      --fg-1: #e8eaf0;
+      --fg-2: #b0b8d0;
+      --fg-muted: #6b7288;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.14);
+      --primary: #7b9aff;
+      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+      --shadow-accent: 0 8px 24px rgba(91, 124, 246, 0.25);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--fg-1);
+    background: var(--bg);
+  }
+
+  /* Soft SaaS Shell */
+  .soft-saas-shell {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: var(--space-3xl) var(--space-xl);
+  }
+
+  /* Profile / Source Card */
+  .profile-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-2xl) var(--space-3xl);
+    margin-bottom: var(--space-3xl);
+    box-shadow: var(--shadow-sm);
+  }
+  .profile-card .profile-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    flex-wrap: wrap;
+  }
+  .profile-card h1 {
+    font-family: var(--font-headline);
+    font-size: clamp(1.5rem, 4vw, 2.25rem);
+    font-weight: 700;
+    margin: 0 0 var(--space-sm);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    color: var(--fg-1);
+  }
+  .profile-card .meta {
+    font-size: 0.9rem;
+    color: var(--fg-muted);
+    display: flex;
+    gap: var(--space-md);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .profile-card .meta .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    display: inline-block;
+  }
+  .profile-card .deck {
+    margin-top: var(--space-lg);
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--fg-2);
+    max-width: 720px;
+  }
+  .profile-card .chips {
+    display: flex;
+    gap: var(--space-sm);
+    margin-top: var(--space-lg);
+    flex-wrap: wrap;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-md);
+    border-radius: var(--radius-pill);
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: var(--surface-container);
+    color: var(--fg-muted);
+    border: 1px solid var(--border);
+  }
+  .chip.tech {
+    background: rgba(91, 124, 246, 0.1);
+    color: var(--primary);
+    border-color: rgba(91, 124, 246, 0.2);
+  }
+  .chip.status {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--green);
+    border-color: rgba(16, 185, 129, 0.2);
+  }
+
+  /* Metric Bloom - Visual Center */
+  .metric-bloom {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-3xl);
+    margin-bottom: var(--space-3xl);
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+  }
+  .metric-bloom::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 50%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(91, 124, 246, 0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .bloom-header {
+    font-family: var(--font-headline);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: var(--space-xl);
+    color: var(--fg-1);
+  }
+  .bloom-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-xl);
+  }
+  .bloom-cell {
+    text-align: center;
+    padding: var(--space-xl);
+    background: var(--surface-container-low);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .bloom-cell:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  .bloom-cell .value {
+    font-family: var(--font-headline);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary);
+    line-height: 1;
+    margin-bottom: var(--space-sm);
+  }
+  .bloom-cell .label {
+    font-size: 0.85rem;
+    color: var(--fg-muted);
+    font-weight: 500;
+  }
+
+  /* Campaign Panels */
+  .campaign-panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-xl);
+    margin-bottom: var(--space-3xl);
+  }
+  .campaign-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-2xl);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s ease;
+  }
+  .campaign-card:hover {
+    box-shadow: var(--shadow-md);
+  }
+  .campaign-card h3 {
+    font-family: var(--font-headline);
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 var(--space-lg);
+    color: var(--fg-1);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+  .campaign-card h3 .icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-md);
+    background: var(--surface-container);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+  }
+
+  /* Metric Tiles */
+  .metric-tile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-md);
+  }
+  .metric-tile {
+    background: var(--surface-container-low);
+    border-radius: var(--radius-md);
+    padding: var(--space-md) var(--space-lg);
+    text-align: center;
+  }
+  .metric-tile .tile-value {
+    font-family: var(--font-headline);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--fg-1);
+    line-height: 1;
+  }
+  .metric-tile .tile-label {
+    font-size: 0.75rem;
+    color: var(--fg-muted);
+    margin-top: var(--space-xs);
+    font-weight: 500;
+  }
+  .metric-tile .tile-delta {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+  .tile-delta.up { color: var(--green); }
+  .tile-delta.down { color: var(--red); }
+
+  /* Activity Strip */
+  .activity-strip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-xl) var(--space-2xl);
+    margin-bottom: var(--space-3xl);
+    box-shadow: var(--shadow-sm);
+  }
+  .activity-strip h3 {
+    font-family: var(--font-headline);
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 var(--space-lg);
+    color: var(--fg-1);
+  }
+  .activity-bar {
+    display: flex;
+    gap: var(--space-xs);
+    height: 32px;
+    align-items: flex-end;
+  }
+  .activity-segment {
+    flex: 1;
+    border-radius: var(--radius-sm);
+    min-width: 4px;
+    transition: opacity 0.2s ease;
+  }
+  .activity-segment:hover {
+    opacity: 0.8;
+  }
+
+  /* Soft Row / List */
+  .soft-row-list {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-xl) var(--space-2xl);
+    margin-bottom: var(--space-3xl);
+    box-shadow: var(--shadow-sm);
+  }
+  .soft-row-list h3 {
+    font-family: var(--font-headline);
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 var(--space-lg);
+    color: var(--fg-1);
+  }
+  .soft-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-md) 0;
+    border-bottom: 1px solid var(--border);
+    gap: var(--space-md);
+  }
+  .soft-row:last-child {
+    border-bottom: none;
+  }
+  .soft-row .row-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    flex: 1;
+    min-width: 0;
+  }
+  .soft-row .row-num {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--fg-muted);
+    min-width: 24px;
+    text-align: right;
+  }
+  .soft-row .row-text {
+    font-size: 0.9rem;
+    color: var(--fg-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .soft-row .row-badge {
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .row-badge.ok {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--green);
+  }
+  .row-badge.pending {
+    background: rgba(246, 196, 69, 0.1);
+    color: #b48800;
+  }
+
+  /* Code blocks */
+  pre {
+    background: var(--surface-container-high);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--fg-2);
+    border: 1px solid var(--border);
+    margin: var(--space-md) 0;
+  }
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--surface-container);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    color: var(--primary);
+  }
+
+  /* Evidence margin */
+  .evidence-margin {
+    border-left: 3px solid var(--primary);
+    padding-left: var(--space-lg);
+    margin: var(--space-lg) 0;
+    color: var(--fg-muted);
+    font-size: 0.9rem;
+  }
+
+  /* Checklist */
+  .checklist {
+    list-style: none;
+    padding: 0;
+    margin: var(--space-md) 0;
+  }
+  .checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    padding: var(--space-xs) 0;
+    font-size: 0.9rem;
+    color: var(--fg-2);
+  }
+  .checklist li .check {
+    width: 18px;
+    height: 18px;
+    border-radius: var(--radius-sm);
+    border: 2px solid var(--border-strong);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+    font-size: 0.7rem;
+    color: var(--green);
+  }
+  .checklist li.checked .check {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: var(--green);
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .soft-saas-shell {
+      padding: var(--space-xl) var(--space-lg);
+    }
+    .profile-card {
+      padding: var(--space-xl);
+    }
+    .metric-bloom {
+      padding: var(--space-xl);
+    }
+    .bloom-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .campaign-panel {
+      grid-template-columns: 1fr;
+    }
+    .metric-tile-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .bloom-cell, .campaign-card, .activity-segment {
+      transition: none;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="soft-saas-shell">
+
+  <!-- Profile Card: Project Identity -->
+  <header class="profile-card">
+    <div class="profile-header">
+      <div>
+        <h1>在 Messages 页面添加复制 Session ID 按钮</h1>
+        <div class="meta">
+          <span><span class="dot"></span> cc-view 项目</span>
+          <span>Spec 文档</span>
+          <span>2026-05-14</span>
+        </div>
+      </div>
+    </div>
+    <div class="deck">
+      在 Messages（Session Browser）页面中，为用户提供一键复制当前选中 session 的 <code>--resume {session_id}</code> 命令的功能，便于快速在终端中恢复指定 session。
+    </div>
+    <div class="chips">
+      <span class="chip tech">Next.js 16</span>
+      <span class="chip tech">React 19</span>
+      <span class="chip tech">Tailwind CSS v4</span>
+      <span class="chip tech">shadcn/ui</span>
+      <span class="chip status">Feature Branch: feat/copy-session-id</span>
+    </div>
+  </header>
+
+  <!-- Metric Bloom: Success Criteria at a Glance -->
+  <section class="metric-bloom">
+    <div class="bloom-header">成功标准概览</div>
+    <div class="bloom-grid">
+      <div class="bloom-cell">
+        <div class="value">5</div>
+        <div class="label">成功标准项</div>
+      </div>
+      <div class="bloom-cell">
+        <div class="value">1</div>
+        <div class="label">核心修改文件</div>
+      </div>
+      <div class="bloom-cell">
+        <div class="value">100%</div>
+        <div class="label">测试覆盖率期望</div>
+      </div>
+      <div class="bloom-cell">
+        <div class="value">0</div>
+        <div class="label">新外部依赖</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Campaign Panels: Key Requirements -->
+  <section class="campaign-panel">
+    <div class="campaign-card">
+      <h3><span class="icon">&#128161;</span> 用户故事</h3>
+      <p style="margin:0 0 var(--space-md); font-size:0.9rem; color:var(--fg-2);">
+        作为 cc-view 用户，我在浏览历史 session 消息时，想要快速获取 <code>--resume</code> 命令，以便在 Claude Code 终端中恢复该 session 继续工作。
+      </p>
+      <div class="evidence-margin">
+        核心价值：减少用户在 GUI 和终端之间手动复制 session ID 的上下文切换成本。
+      </div>
+    </div>
+
+    <div class="campaign-card">
+      <h3><span class="icon">&#128295;</span> 技术栈</h3>
+      <div class="metric-tile-grid">
+        <div class="metric-tile">
+          <div class="tile-value">16</div>
+          <div class="tile-label">Next.js</div>
+        </div>
+        <div class="metric-tile">
+          <div class="tile-value">19</div>
+          <div class="tile-label">React</div>
+        </div>
+        <div class="metric-tile">
+          <div class="tile-value">v4</div>
+          <div class="tile-label">Tailwind</div>
+        </div>
+        <div class="metric-tile">
+          <div class="tile-value">&#10003;</div>
+          <div class="tile-label">shadcn/ui</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="campaign-card">
+      <h3><span class="icon">&#128203;</span> 项目结构</h3>
+      <pre style="margin:0; font-size:0.8rem;">app/
+  projects/
+    [projectId]/
+      page.tsx
+components/
+  session-browser.tsx  &lt;-- 核心修改
+  ui/
+lib/
+  utils.ts
+types/
+  claude.ts</pre>
+    </div>
+
+    <div class="campaign-card">
+      <h3><span class="icon">&#9989;</span> 成功标准</h3>
+      <ul class="checklist">
+        <li class="checked"><span class="check">&#10003;</span> Header 区域固定显示 Session ID 和复制按钮</li>
+        <li class="checked"><span class="check">&#10003;</span> 复制内容为 <code>--resume {session_id}</code> 格式</li>
+        <li class="checked"><span class="check">&#10003;</span> 1 秒内图标从复制变为 &#10003; 然后恢复</li>
+        <li class="checked"><span class="check">&#10003;</span> 不引入新的外部依赖</li>
+        <li class="checked"><span class="check">&#10003;</span> 不影响现有布局和交互</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Activity Strip: Implementation Flow -->
+  <section class="activity-strip">
+    <h3>实现流程</h3>
+    <div class="activity-bar" id="flow-bar">
+      <!-- Generated by JS -->
+    </div>
+    <div style="display:flex; justify-content:space-between; margin-top:var(--space-sm); font-size:0.75rem; color:var(--fg-muted);">
+      <span>需求理解</span>
+      <span>组件设计</span>
+      <span>核心逻辑</span>
+      <span>样式集成</span>
+      <span>测试覆盖</span>
+      <span>验证交付</span>
+    </div>
+  </section>
+
+  <!-- Soft Row List: Detailed Specs -->
+  <section class="soft-row-list">
+    <h3>详细规范</h3>
+
+    <div class="soft-row">
+      <div class="row-left">
+        <span class="row-num">01</span>
+        <span class="row-text"><strong>按钮位置</strong> — 右侧消息区域 header 中，与 Session ID 同行显示</span>
+      </div>
+      <span class="row-badge ok">已确定</span>
+    </div>
+
+    <div class="soft-row">
+      <div class="row-left">
+        <span class="row-num">02</span>
+        <span class="row-text"><strong>复制反馈</strong> — 图标瞬时变化（Copy &#8594; Check &#8594; 恢复），无 Toast 或模态干扰</span>
+      </div>
+      <span class="row-badge ok">已确定</span>
+    </div>
+
+    <div class="soft-row">
+      <div class="row-left">
+        <span class="row-num">03</span>
+        <span class="row-text"><strong>复制格式</strong> — 精确为 <code>--resume {session_id}</code>，id 前后无多余空格</span>
+      </div>
+      <span class="row-badge ok">已确定</span>
+    </div>
+
+    <div class="soft-row">
+      <div class="row-left">
+        <span class="row-num">04</span>
+        <span class="row-text"><strong>错误处理</strong> — 复制失败时静默失败，不抛出未处理异常，不打扰用户</span>
+      </div>
+      <span class="row-badge ok">已确定</span>
+    </div>
+
+    <div class="soft-row">
+      <div class="row-left">
+        <span class="row-num">05</span>
+        <span class="row-text"><strong>组件风格</strong> — 函数组件 + Hooks，类型显式声明 Props 接口，顶部标注 <code>"use client"</code></span>
+      </div>
+      <span class="row-badge ok">已确定</span>
+    </div>
+
+    <div class="soft-row">
+      <div class="row-left">
+        <span class="row-num">06</span>
+        <span class="row-text"><strong>测试策略</strong> — Vitest + React Testing Library，测试渲染、点击、定时器恢复，覆盖率 100%</span>
+      </div>
+      <span class="row-badge ok">已确定</span>
+    </div>
+
+    <div class="soft-row">
+      <div class="row-left">
+        <span class="row-num">07</span>
+        <span class="row-text"><strong>颜色体系</strong> — 使用 neutral 色系保持一致性，按钮始终可见（不依赖 hover）</span>
+      </div>
+      <span class="row-badge ok">已确定</span>
+    </div>
+  </section>
+
+  <!-- Code Example Panel -->
+  <section class="campaign-panel">
+    <div class="campaign-card" style="grid-column: 1 / -1;">
+      <h3><span class="icon">&#128187;</span> 示例代码：CopyButton 组件</h3>
+      <pre>"use client"
+
+import { useState, useCallback } from "react"
+import { Copy, Check } from "lucide-react"
+
+interface CopyButtonProps {
+  text: string
+}
+
+export function CopyButton({ text }: CopyButtonProps) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1000)
+    } catch {
+      // 静默失败，不打扰用户
+    }
+  }, [text])
+
+  return (
+    &lt;button
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs
+                 text-neutral-500 transition-colors hover:bg-neutral-100
+                 hover:text-neutral-700"
+      title="复制 --resume 命令"
+    &gt;
+      {copied
+        ? &lt;Check className="h-3.5 w-3.5 text-green-600" /&gt;
+        : &lt;Copy className="h-3.5 w-3.5" /&gt;}
+      {copied ? "已复制" : "复制"}
+    &lt;/button&gt;
+  )
+}</pre>
+      <div class="evidence-margin">
+        关键约定：使用 useCallback 包裹事件处理函数（如果作为 prop 传递），图标使用 lucide-react，Tailwind 类按布局 &#8594; 外观 &#8594; 交互 &#8594; 状态顺序组织。
+      </div>
+    </div>
+  </section>
+
+  <!-- Soft Row List: Boundaries -->
+  <section class="soft-row-list">
+    <h3>边界约定</h3>
+
+    <div class="soft-row">
+      <div class="row-left">
+        <span class="row-num" style="color:var(--green);">&#10003;</span>
+        <span class="row-text"><strong>Always do:</strong> 保持现有代码风格和命名约定，修改前确认目标文件状态，手动验证 UI 效果，确保 TypeScript 类型检查通过</span>
+      </div>
+    </div>
+
+    <div class="soft-row">
+      <div class="row-left">
+        <span class="row-num" style="color:var(--accent-yellow);">?</span>
+        <span class="row-text"><strong>Ask first:</strong> 修改现有 API 路由或数据结构，添加新的 npm 依赖，修改全局样式或主题配置</span>
+      </div>
+    </div>
+
+    <div class="soft-row">
+      <div class="row-left">
+        <span class="row-num" style="color:var(--red);">&#10007;</span>
+        <span class="row-text"><strong>Never do:</strong> 修改与需求无关的代码，删除或重命名现有组件/函数，提交未测试的代码，引入大型 UI 库仅为此小功能</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer style="text-align:center; padding: var(--space-3xl) 0 var(--space-xl); color: var(--fg-muted); font-size: 0.85rem; border-top: 1px solid var(--border); margin-top: var(--space-2xl);">
+    cc-view Spec 文档 &middot; 2026-05-14 &middot; feat/copy-session-id
+  </footer>
+
+</div>
+
+<script>
+  // Generate activity bar segments
+  (function() {
+    const bar = document.getElementById('flow-bar');
+    const colors = ['#5b7cf6', '#7b40e0', '#65d6ce', '#e978ae', '#f6c445', '#10b981'];
+    const heights = [60, 80, 100, 75, 90, 65];
+
+    for (let i = 0; i < 24; i++) {
+      const seg = document.createElement('div');
+      seg.className = 'activity-segment';
+      seg.style.background = colors[i % colors.length];
+      seg.style.height = heights[i % heights.length] + '%';
+      seg.style.opacity = 0.6 + (Math.random() * 0.4);
+      bar.appendChild(seg);
+    }
+  })();
+</script>
+</body>
+</html>
