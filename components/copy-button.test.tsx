@@ -22,7 +22,7 @@ describe("CopyButton", () => {
   it("renders Copy icon and '复制' text by default", () => {
     render(<CopyButton text="hello" />)
     expect(screen.getByText("复制")).toBeTruthy()
-    expect(document.querySelector("svg")).toBeTruthy()
+    expect(screen.getByTestId("copy-icon")).toBeTruthy()
   })
 
   it("calls navigator.clipboard.writeText with the given text on click", async () => {
@@ -34,13 +34,14 @@ describe("CopyButton", () => {
     expect(mockWriteText).toHaveBeenCalledWith("--resume abc123")
   })
 
-  it("shows '已复制' text after click", async () => {
+  it("shows Check icon and '已复制' text after click", async () => {
     render(<CopyButton text="hello" />)
     const button = screen.getByRole("button")
     await act(async () => {
       fireEvent.click(button)
     })
     expect(screen.getByText("已复制")).toBeTruthy()
+    expect(screen.getByTestId("check-icon")).toBeTruthy()
   })
 
   it("reverts to '复制' text after 1 second", async () => {

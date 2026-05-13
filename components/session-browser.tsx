@@ -431,7 +431,7 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
                   <span className="truncate text-xs font-mono text-neutral-500">
                     Session: {selectedSession.id}
                   </span>
-                  <CopyButton text={`--resume ${selectedSession.id}`} />
+                  <CopyButton text={`--resume ${selectedSession.id}`} title="复制 --resume 命令" />
                 </div>
               )}
 
