@@ -8,6 +8,7 @@ import { MessageNavPanel } from "./message/message-nav-panel"
 import { extractMessageNavItems } from "@/lib/message-grouping"
 import { SessionDeleteDialog } from "./session-delete-dialog"
 import { WorktreeDeleteDialog } from "./worktree-delete-dialog"
+import { CopyButton } from "./copy-button"
 import { buildWorktreeProjectId } from "@/lib/worktree"
 import { cn } from "@/lib/utils"
 import type { SessionInfo, SessionMessage, WorktreeInfo } from "@/types/claude"
@@ -423,6 +424,16 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
                   )}
                 </div>
               </div>
+
+              {/* Row 1.2: session ID + copy button */}
+              {selectedSession && (
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className="truncate text-xs font-mono text-neutral-500">
+                    Session: {selectedSession.id}
+                  </span>
+                  <CopyButton text={`--resume ${selectedSession.id}`} />
+                </div>
+              )}
 
               {/* Row 1.5: full firstPrompt preview */}
               {selectedSession?.firstPrompt && (
