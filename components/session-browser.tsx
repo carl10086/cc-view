@@ -11,6 +11,7 @@ import { WorktreeDeleteDialog } from "./worktree-delete-dialog"
 import { CopyButton } from "./copy-button"
 import { buildWorktreeProjectId } from "@/lib/worktree"
 import { cn } from "@/lib/utils"
+import { mainMessageTypes } from "@/lib/message-types-data"
 import type { SessionInfo, SessionMessage, WorktreeInfo } from "@/types/claude"
 
 interface SessionBrowserProps {
@@ -22,6 +23,10 @@ interface SessionBrowserProps {
 }
 
 const DEFAULT_PAGE_SIZE = 500
+
+const messageTypeDescriptions = new Map(
+  mainMessageTypes.map((t) => [t.filterType, t.description])
+)
 
 export function SessionBrowser({ projectId, projectName, sessions, worktrees, worktreeSessions }: SessionBrowserProps) {
   const [activeWorktree, setActiveWorktree] = useState<string | null>(null)
@@ -458,6 +463,7 @@ export function SessionBrowser({ projectId, projectName, sessions, worktrees, wo
                           return next
                         })
                       }}
+                      title={messageTypeDescriptions.get(type) || `${type} 消息类型`}
                       className={cn(
                         "rounded-full px-2.5 py-0.5 text-xs transition-colors",
                         selectedTypes.has(type)
