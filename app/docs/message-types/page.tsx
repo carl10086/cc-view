@@ -1,6 +1,7 @@
 import { MessageTypeCard } from "@/components/docs/message-type-card"
 import { SystemSubtypeTable } from "@/components/docs/system-subtype-table"
 import { AttachmentTypeTable } from "@/components/docs/attachment-type-table"
+import { ScrollToTop } from "@/components/docs/scroll-to-top"
 import { mainMessageTypes, systemSubtypes, attachmentCategories } from "@/lib/message-types-data"
 
 export default function MessageTypesPage() {
@@ -54,6 +55,8 @@ export default function MessageTypesPage() {
           </p>
           <AttachmentTypeTable categories={attachmentCategories} />
         </section>
+
+        <ScrollToTop />
       </div>
     </div>
   )
