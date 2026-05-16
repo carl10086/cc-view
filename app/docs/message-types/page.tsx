@@ -1,0 +1,38 @@
+import { MessageTypeCard } from "@/components/docs/message-type-card"
+import { mainMessageTypes } from "@/lib/message-types-data"
+
+export default function MessageTypesPage() {
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">
+            Message Types 文档
+          </h1>
+          <p className="text-muted-foreground text-lg">
+            了解 Claude Code 会话中每种消息类型的含义和用途
+          </p>
+        </div>
+
+        <section className="mb-12">
+          <h2 className="text-xl font-semibold text-foreground mb-4">
+            主要消息类型
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {mainMessageTypes.map((type) => (
+              <MessageTypeCard
+                key={type.filterType}
+                filterType={type.filterType}
+                label={type.label}
+                color={type.color}
+                bgColor={type.bgColor}
+                description={type.description}
+                exampleJson={type.exampleJson}
+              />
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  )
+}
