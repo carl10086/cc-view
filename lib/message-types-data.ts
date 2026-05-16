@@ -71,6 +71,81 @@ export const systemSubtypes: SystemSubtypeInfo[] = [
   },
 ]
 
+export interface AttachmentCategoryInfo {
+  name: string
+  subtypes: { type: string; description: string }[]
+}
+
+export const attachmentCategories: AttachmentCategoryInfo[] = [
+  {
+    name: "Hook 相关",
+    subtypes: [
+      {
+        type: "hook_success",
+        description: "Hook 执行成功，附带结果数据和输出内容。",
+      },
+      {
+        type: "hook_error_during_execution",
+        description: "Hook 执行过程中发生运行时错误。",
+      },
+      {
+        type: "hook_non_blocking_error",
+        description: "非阻塞性错误，不影响主流程继续执行。",
+      },
+      {
+        type: "hook_blocking_error",
+        description: "阻塞性错误，需要处理后才能继续后续操作。",
+      },
+      {
+        type: "hook_cancelled",
+        description: "Hook 被用户或系统取消执行。",
+      },
+      {
+        type: "hook_system_message",
+        description: "系统级别的 Hook 消息，通常用于通知或日志。",
+      },
+      {
+        type: "hook_additional_context",
+        description: "Hook 提供的额外上下文信息，扩展会话内容。",
+      },
+      {
+        type: "hook_stopped_continuation",
+        description: "Hook 停止后续执行，中断当前操作链。",
+      },
+      {
+        type: "hook_permission_decision",
+        description: "Hook 权限决策结果，记录权限授予或拒绝。",
+      },
+    ],
+  },
+  {
+    name: "Skill 相关",
+    subtypes: [
+      {
+        type: "skill_listing",
+        description: "可用技能列表，展示当前环境中注册的所有技能。",
+      },
+      {
+        type: "skill_discovery",
+        description: "技能发现结果，动态识别和加载新技能。",
+      },
+    ],
+  },
+  {
+    name: "Agent 相关",
+    subtypes: [
+      {
+        type: "agent_listing_delta",
+        description: "Agent 列表变更（增量更新），实时反映 Agent 状态变化。",
+      },
+      {
+        type: "agent_mention",
+        description: "Agent 被提及的事件，触发特定 Agent 的响应或动作。",
+      },
+    ],
+  },
+]
+
 export const mainMessageTypes: MessageTypeInfo[] = [
   {
     filterType: "user",

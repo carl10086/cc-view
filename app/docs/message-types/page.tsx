@@ -1,6 +1,7 @@
 import { MessageTypeCard } from "@/components/docs/message-type-card"
 import { SystemSubtypeTable } from "@/components/docs/system-subtype-table"
-import { mainMessageTypes, systemSubtypes } from "@/lib/message-types-data"
+import { AttachmentTypeTable } from "@/components/docs/attachment-type-table"
+import { mainMessageTypes, systemSubtypes, attachmentCategories } from "@/lib/message-types-data"
 
 export default function MessageTypesPage() {
   return (
@@ -42,6 +43,16 @@ export default function MessageTypesPage() {
             system 消息包含多种子类型，用于记录 Claude Code 运行时的不同内部事件：
           </p>
           <SystemSubtypeTable subtypes={systemSubtypes} />
+        </section>
+
+        <section className="mb-12">
+          <h2 className="text-xl font-semibold text-foreground mb-4">
+            Attachment 子类型
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            attachment 类型包含多种子类型，按功能分为 Hook、Skill、Agent 三大类：
+          </p>
+          <AttachmentTypeTable categories={attachmentCategories} />
         </section>
       </div>
     </div>
