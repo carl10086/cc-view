@@ -36,6 +36,12 @@ function Navbar() {
             >
               Projects
             </Link>
+            <Link
+              href="/docs/message-types"
+              className="text-sm font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+            >
+              Docs
+            </Link>
           </nav>
         </div>
       </div>
