@@ -1,5 +1,6 @@
 import { MessageTypeCard } from "@/components/docs/message-type-card"
-import { mainMessageTypes } from "@/lib/message-types-data"
+import { SystemSubtypeTable } from "@/components/docs/system-subtype-table"
+import { mainMessageTypes, systemSubtypes } from "@/lib/message-types-data"
 
 export default function MessageTypesPage() {
   return (
@@ -31,6 +32,16 @@ export default function MessageTypesPage() {
               />
             ))}
           </div>
+        </section>
+
+        <section className="mb-12">
+          <h2 className="text-xl font-semibold text-foreground mb-4">
+            System Message 子类型
+          </h2>
+          <p className="text-muted-foreground mb-4">
+            system 消息包含多种子类型，用于记录 Claude Code 运行时的不同内部事件：
+          </p>
+          <SystemSubtypeTable subtypes={systemSubtypes} />
         </section>
       </div>
     </div>

@@ -7,6 +7,70 @@ export interface MessageTypeInfo {
   exampleJson?: object
 }
 
+export interface SystemSubtypeInfo {
+  subtype: string
+  description: string
+}
+
+export const systemSubtypes: SystemSubtypeInfo[] = [
+  {
+    subtype: "informational",
+    description: "一般信息提示，如操作完成通知、状态更新等。",
+  },
+  {
+    subtype: "permission_retry",
+    description: "权限请求被拒绝后的重试事件，提示用户重新确认。",
+  },
+  {
+    subtype: "bridge_status",
+    description: "与外部系统（如 IDE、编辑器）连接状态的变更通知。",
+  },
+  {
+    subtype: "scheduled_task_fire",
+    description: "定时任务触发时的通知，如定期清理或检查。",
+  },
+  {
+    subtype: "stop_hook_summary",
+    description: "Hook 停止执行后的摘要报告，汇总执行结果。",
+  },
+  {
+    subtype: "turn_duration",
+    description: "单轮对话的耗时统计，用于性能分析。",
+  },
+  {
+    subtype: "away_summary",
+    description: "用户离开期间的活动摘要，返回时展示。",
+  },
+  {
+    subtype: "memory_saved",
+    description: "重要信息被记录到长期记忆的确认通知。",
+  },
+  {
+    subtype: "agents_killed",
+    description: "Agent 进程被终止时的通知。",
+  },
+  {
+    subtype: "api_metrics",
+    description: "API 调用指标，包括 token 使用量、延迟、成本等。",
+  },
+  {
+    subtype: "local_command",
+    description: "本地命令（如 git、npm）执行状态通知。",
+  },
+  {
+    subtype: "compact_boundary",
+    description: "会话紧凑化边界标记，标识上下文压缩点。",
+  },
+  {
+    subtype: "microcompact_boundary",
+    description: "微紧凑化边界标记，更细粒度的上下文压缩点。",
+  },
+  {
+    subtype: "api_error",
+    description: "API 调用错误通知，包含错误码和详情。",
+  },
+]
+
 export const mainMessageTypes: MessageTypeInfo[] = [
   {
     filterType: "user",
