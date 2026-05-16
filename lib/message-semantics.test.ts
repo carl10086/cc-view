@@ -105,7 +105,66 @@ describe("normalizeRawSessionMessage", () => {
       kind: "tool-result",
       filterType: "tool-result",
     })
-    expect(result.every((message) => message.raw === raw)).toBe(true)
+    // Text-block user messages get their own shallow raw copy with only that block
+    const userMessages = result.filter((m) => m.kind === "user")
+    expect(userMessages[0]?.raw).not.toBe(raw)
+    expect(
+      (userMessages[0]?.raw as Record<string, unknown>).message
+    ).toMatchObject({
+      content: [{ type: "text", text: "Please inspect this" }],
+    })
+    // Tool-result messages keep the full original raw
+    const toolMessages = result.filter((m) => m.kind === "tool-result")
+    expect(toolMessages[0]?.raw).toBe(raw)
+  })
+
+  it("split user message previews should only contain their own text block", () => {
+    const raw = {
+      uuid: "msg-mixed",
+      type: "user",
+      message: {
+        role: "user",
+        content: [
+          { type: "text", text: "First user input" },
+          { type: "text", text: "Second user input" },
+          {
+            type: "tool_result",
+            tool_use_id: "tool-1",
+            content: "tool output",
+          },
+        ],
+      },
+    }
+
+    const result = normalizeRawSessionMessage(raw, 0, 0)
+
+    const userMessages = result.filter((m) => m.kind === "user")
+    expect(userMessages).toHaveLength(2)
+
+    // BUG: each user message's preview currently returns ALL text blocks
+    // because they share the same full raw object
+    expect(getMessagePreview(userMessages[0]!)).toBe("First user input")
+    expect(getMessagePreview(userMessages[1]!)).toBe("Second user input")
+  })
+
+  it("classifies isMeta user messages as metadata, not real user input", () => {
+    const raw = {
+      uuid: "msg-meta",
+      type: "user",
+      isMeta: true,
+      message: {
+        role: "user",
+        content: "Base directory for this skill...",
+      },
+    }
+
+    const result = normalizeRawSessionMessage(raw, 0, 0)
+
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({
+      kind: "metadata",
+      filterType: "user",
+    })
   })
 
   it("classifies assistant and metadata messages", () => {

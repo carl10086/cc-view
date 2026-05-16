@@ -125,7 +125,16 @@ function normalizeUserContent(
 
   return blocks.flatMap((block, index) => {
     if (isTextBlock(block)) {
-      return [buildUserMessage(raw, lineIndex, messageIndex, `text-${index}`)]
+      // Create a shallow copy of raw with only this text block in content
+      // so that getMessagePreview and UserMessage render only this block
+      const newRaw = {
+        ...raw,
+        message: {
+          ...(asRecord(raw.message) ?? {}),
+          content: [block],
+        },
+      }
+      return [buildUserMessage(newRaw, lineIndex, messageIndex, `text-${index}`)]
     }
     if (isToolResultBlock(block)) {
       return [
@@ -157,6 +166,9 @@ export function normalizeRawSessionMessage(
   }
 
   if (rawType === "user" || role === "user") {
+    if (raw.isMeta === true) {
+      return [buildMessage(raw, lineIndex, messageIndex, "metadata", "user")]
+    }
     return normalizeUserContent(raw, lineIndex, messageIndex, content)
   }
 
