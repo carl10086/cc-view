@@ -25,6 +25,14 @@ export const MessageStream = forwardRef<MessageStreamHandle, MessageStreamProps>
     const turns = useMemo(() => groupMessagesIntoTurns(messages), [messages])
     const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
 
+    const virtualizer = useVirtualizer({
+      count: turns.length,
+      getScrollElement: () => parentRef.current,
+      estimateSize: () => 150,
+      measureElement: (el) => el.getBoundingClientRect().height,
+      overscan: 5,
+    })
+
     useImperativeHandle(forwardedRef, () => ({
       scrollToMessage: (messageId: string) => {
         const turnIndex = turns.findIndex(
@@ -34,7 +42,9 @@ export const MessageStream = forwardRef<MessageStreamHandle, MessageStreamProps>
             turn.metadata.some((msg) => msg.id === messageId)
         )
         if (turnIndex !== -1) {
-          virtualizer.scrollToIndex(turnIndex, { align: "center" })
+          // Use react-virtual's scrollToIndex for accurate positioning
+          // It handles measurements internally and will correct as items are measured
+          virtualizer.scrollToIndex(turnIndex, { align: "start" })
           setHighlightedMessageId(messageId)
         }
       },
@@ -48,15 +58,7 @@ export const MessageStream = forwardRef<MessageStreamHandle, MessageStreamProps>
           parentRef.current.scrollTop = parentRef.current.scrollHeight
         }
       },
-    }))
-
-    const virtualizer = useVirtualizer({
-      count: turns.length,
-      getScrollElement: () => parentRef.current,
-      estimateSize: () => 150,
-      measureElement: (el) => el.getBoundingClientRect().height,
-      overscan: 5,
-    })
+    }), [turns, virtualizer])
 
     const virtualItems = virtualizer.getVirtualItems()
 
