@@ -23,6 +23,8 @@ export const MessageStream = forwardRef<MessageStreamHandle, MessageStreamProps>
   function MessageStream({ messages, onScrollNearBottom, filterActive, hasMore }, forwardedRef) {
     const parentRef = useRef<HTMLDivElement>(null)
     const turns = useMemo(() => groupMessagesIntoTurns(messages), [messages])
+    const turnsRef = useRef(turns)
+    useEffect(() => { turnsRef.current = turns }, [turns])
     const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
 
     const virtualizer = useVirtualizer({
@@ -35,30 +37,30 @@ export const MessageStream = forwardRef<MessageStreamHandle, MessageStreamProps>
 
     useImperativeHandle(forwardedRef, () => ({
       scrollToMessage: (messageId: string) => {
-        const turnIndex = turns.findIndex(
+        const currentTurns = turnsRef.current
+        const turnIndex = currentTurns.findIndex(
           (turn) =>
             turn.user?.id === messageId ||
             turn.events.some((msg) => msg.id === messageId) ||
             turn.metadata.some((msg) => msg.id === messageId)
         )
         if (turnIndex !== -1) {
-          // Use react-virtual's scrollToIndex for accurate positioning
-          // It handles measurements internally and will correct as items are measured
           virtualizer.scrollToIndex(turnIndex, { align: "start" })
           setHighlightedMessageId(messageId)
         }
       },
       scrollToTop: () => {
-        if (parentRef.current) {
-          parentRef.current.scrollTop = 0
+        if (turnsRef.current.length > 0) {
+          virtualizer.scrollToIndex(0, { align: "start" })
         }
       },
       scrollToBottom: () => {
-        if (parentRef.current) {
-          parentRef.current.scrollTop = parentRef.current.scrollHeight
+        const currentTurns = turnsRef.current
+        if (currentTurns.length > 0) {
+          virtualizer.scrollToIndex(currentTurns.length - 1, { align: "end" })
         }
       },
-    }), [turns, virtualizer])
+    }), [virtualizer])
 
     const virtualItems = virtualizer.getVirtualItems()
 
