@@ -2,7 +2,7 @@ import type { SessionMessage, SessionMessageKind } from "@/types/claude"
 
 type RawRecord = Record<string, unknown>
 
-function asRecord(value: unknown): RawRecord | undefined {
+export function asRecord(value: unknown): RawRecord | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as RawRecord)
     : undefined
@@ -52,6 +52,14 @@ function isTextBlock(block: RawRecord): boolean {
   return block.type === "text" && typeof block.text === "string" && block.text.length > 0
 }
 
+function isThinkingBlock(block: RawRecord): boolean {
+  return block.type === "thinking"
+}
+
+function isToolUseBlock(block: RawRecord): boolean {
+  return block.type === "tool_use"
+}
+
 function isToolResultBlock(block: RawRecord): boolean {
   return block.type === "tool_result"
 }
@@ -89,6 +97,97 @@ function buildToolResultMessage(
     "tool-result",
     suffix
   )
+}
+
+function buildAssistantMessage(
+  raw: RawRecord,
+  lineIndex: number,
+  messageIndex: number,
+  suffix?: string
+): SessionMessage {
+  return buildMessage(raw, lineIndex, messageIndex, "assistant", "assistant", suffix)
+}
+
+function buildToolCallMessage(
+  raw: RawRecord,
+  lineIndex: number,
+  messageIndex: number,
+  suffix: string
+): SessionMessage {
+  return buildMessage(raw, lineIndex, messageIndex, "tool-call", "tool-call", suffix)
+}
+
+function normalizeAssistantContent(
+  raw: RawRecord,
+  lineIndex: number,
+  messageIndex: number,
+  content: unknown
+): SessionMessage[] {
+  if (typeof content === "string" || !Array.isArray(content)) {
+    return [buildAssistantMessage(raw, lineIndex, messageIndex)]
+  }
+
+  const blocks = toRecordBlocks(content)
+  if (blocks.length === 0) {
+    return [buildAssistantMessage(raw, lineIndex, messageIndex)]
+  }
+
+  const hasToolUse = blocks.some(isToolUseBlock)
+  const hasTextOrThinking = blocks.some(
+    (b) => isTextBlock(b) || isThinkingBlock(b)
+  )
+
+  if (!hasToolUse) {
+    return [buildAssistantMessage(raw, lineIndex, messageIndex)]
+  }
+
+  if (!hasTextOrThinking) {
+    return blocks.flatMap((block, index) => {
+      if (isToolUseBlock(block)) {
+        return [
+          buildToolCallMessage(raw, lineIndex, messageIndex, `tool-call-${index}`),
+        ]
+      }
+      return []
+    })
+  }
+
+  const out: SessionMessage[] = []
+  let segmentBlocks: RawRecord[] = []
+  let segmentIndex = 0
+  const baseMessage = asRecord(raw.message) ?? {}
+
+  const flushSegment = () => {
+    if (segmentBlocks.length === 0) return
+    const newRaw = {
+      ...raw,
+      message: {
+        ...baseMessage,
+        content: segmentBlocks,
+      },
+    }
+    out.push(
+      buildAssistantMessage(newRaw, lineIndex, messageIndex, `assistant-${segmentIndex}`)
+    )
+    segmentIndex += 1
+    segmentBlocks = []
+  }
+
+  blocks.forEach((block, index) => {
+    if (isTextBlock(block) || isThinkingBlock(block)) {
+      segmentBlocks.push(block)
+      return
+    }
+    if (isToolUseBlock(block)) {
+      flushSegment()
+      out.push(
+        buildToolCallMessage(raw, lineIndex, messageIndex, `tool-call-${index}`)
+      )
+    }
+  })
+
+  flushSegment()
+  return out
 }
 
 function normalizeUserContent(
@@ -162,7 +261,7 @@ export function normalizeRawSessionMessage(
   const content = message?.content
 
   if (rawType === "assistant" || role === "assistant") {
-    return [buildMessage(raw, lineIndex, messageIndex, "assistant", "assistant")]
+    return normalizeAssistantContent(raw, lineIndex, messageIndex, content)
   }
 
   if (rawType === "user" || role === "user") {
@@ -206,6 +305,10 @@ export function getMessagePreview(message: SessionMessage, maxLength = 60): stri
 
 export function isUserInputMessage(message: SessionMessage): boolean {
   return message.kind === "user"
+}
+
+export function isToolCallMessage(message: SessionMessage): boolean {
+  return message.kind === "tool-call"
 }
 
 export function isToolResultMessage(message: SessionMessage): boolean {

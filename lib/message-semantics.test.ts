@@ -192,6 +192,264 @@ describe("normalizeRawSessionMessage", () => {
       filterType: "permission-mode",
     })
   })
+
+  it("classifies string assistant content as single assistant message", () => {
+    const result = normalizeRawSessionMessage(
+      {
+        uuid: "asst-str",
+        type: "assistant",
+        message: { role: "assistant", content: "Plain reply" },
+      },
+      0,
+      0
+    )
+
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({
+      id: "asst-str-0",
+      kind: "assistant",
+      filterType: "assistant",
+    })
+  })
+
+  it("classifies pure thinking assistant content as single assistant", () => {
+    const result = normalizeRawSessionMessage(
+      {
+        uuid: "asst-think",
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [{ type: "thinking", thinking: "pondering..." }],
+        },
+      },
+      0,
+      0
+    )
+
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({
+      id: "asst-think-0",
+      kind: "assistant",
+    })
+  })
+
+  it("merges consecutive text + thinking blocks into one assistant", () => {
+    const result = normalizeRawSessionMessage(
+      {
+        uuid: "asst-mix-tt",
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: "let me think" },
+            { type: "text", text: "Here we go" },
+          ],
+        },
+      },
+      0,
+      0
+    )
+
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({
+      kind: "assistant",
+      filterType: "assistant",
+    })
+  })
+
+  it("splits a single tool_use block into one tool-call", () => {
+    const raw = {
+      uuid: "asst-tu",
+      type: "assistant",
+      message: {
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: "tu-1",
+            name: "Bash",
+            input: { command: "ls" },
+          },
+        ],
+      },
+    }
+    const result = normalizeRawSessionMessage(raw, 0, 0)
+
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({
+      id: "asst-tu-0-tool-call-0",
+      kind: "tool-call",
+      filterType: "tool-call",
+    })
+    expect(result[0]?.raw).toBe(raw)
+  })
+
+  it("splits multiple tool_use-only assistant content into multiple tool-calls", () => {
+    const raw = {
+      uuid: "asst-multi-tu",
+      type: "assistant",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "tool_use", id: "tu-1", name: "Read", input: {} },
+          { type: "tool_use", id: "tu-2", name: "Bash", input: {} },
+        ],
+      },
+    }
+    const result = normalizeRawSessionMessage(raw, 0, 0)
+
+    expect(result).toHaveLength(2)
+    expect(result[0]).toMatchObject({
+      id: "asst-multi-tu-0-tool-call-0",
+      kind: "tool-call",
+    })
+    expect(result[1]).toMatchObject({
+      id: "asst-multi-tu-0-tool-call-1",
+      kind: "tool-call",
+    })
+  })
+
+  it("splits mixed text + tool_use + text + tool_use into 4 ordered messages", () => {
+    const raw = {
+      uuid: "asst-mix",
+      type: "assistant",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "text", text: "First explain" },
+          { type: "tool_use", id: "tu-1", name: "Read", input: {} },
+          { type: "text", text: "Then continue" },
+          { type: "tool_use", id: "tu-2", name: "Bash", input: {} },
+        ],
+      },
+    }
+    const result = normalizeRawSessionMessage(raw, 0, 0)
+
+    expect(result).toHaveLength(4)
+    expect(result.map((m) => m.kind)).toEqual([
+      "assistant",
+      "tool-call",
+      "assistant",
+      "tool-call",
+    ])
+    expect(result[0]?.id).toBe("asst-mix-0-assistant-0")
+    expect(result[1]?.id).toBe("asst-mix-0-tool-call-1")
+    expect(result[2]?.id).toBe("asst-mix-0-assistant-1")
+    expect(result[3]?.id).toBe("asst-mix-0-tool-call-3")
+  })
+
+  it("merges text + thinking into one assistant segment when followed by tool_use", () => {
+    const raw = {
+      uuid: "asst-tt-tu",
+      type: "assistant",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "thinking", thinking: "reasoning" },
+          { type: "text", text: "Let me look this up" },
+          { type: "tool_use", id: "tu-1", name: "Read", input: {} },
+        ],
+      },
+    }
+    const result = normalizeRawSessionMessage(raw, 0, 0)
+
+    expect(result).toHaveLength(2)
+    expect(result[0]).toMatchObject({
+      kind: "assistant",
+      id: "asst-tt-tu-0-assistant-0",
+    })
+    expect(result[1]).toMatchObject({
+      kind: "tool-call",
+      id: "asst-tt-tu-0-tool-call-2",
+    })
+  })
+
+  it("gives assistant sub-message a shallow raw containing only its segment blocks", () => {
+    const raw = {
+      uuid: "asst-shallow",
+      type: "assistant",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "text", text: "first" },
+          { type: "tool_use", id: "tu-1", name: "Read", input: {} },
+          { type: "text", text: "second" },
+        ],
+      },
+    }
+    const result = normalizeRawSessionMessage(raw, 0, 0)
+
+    const assistantMessages = result.filter((m) => m.kind === "assistant")
+    expect(assistantMessages).toHaveLength(2)
+
+    expect(assistantMessages[0]?.raw).not.toBe(raw)
+    expect(
+      (assistantMessages[0]?.raw as Record<string, unknown>).message
+    ).toMatchObject({
+      content: [{ type: "text", text: "first" }],
+    })
+
+    expect(
+      (assistantMessages[1]?.raw as Record<string, unknown>).message
+    ).toMatchObject({
+      content: [{ type: "text", text: "second" }],
+    })
+
+    const toolCallMessages = result.filter((m) => m.kind === "tool-call")
+    expect(toolCallMessages[0]?.raw).toBe(raw)
+  })
+
+  it("handles assistant with thinking before and after tool_use as two assistant segments", () => {
+    const raw = {
+      uuid: "asst-think-tu-think",
+      type: "assistant",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "thinking", thinking: "first thought" },
+          { type: "tool_use", id: "tu-1", name: "Read", input: {} },
+          { type: "thinking", thinking: "second thought" },
+        ],
+      },
+    }
+    const result = normalizeRawSessionMessage(raw, 0, 0)
+
+    expect(result.map((m) => m.kind)).toEqual([
+      "assistant",
+      "tool-call",
+      "assistant",
+    ])
+    expect(result[0]?.id).toBe("asst-think-tu-think-0-assistant-0")
+    expect(result[1]?.id).toBe("asst-think-tu-think-0-tool-call-1")
+    expect(result[2]?.id).toBe("asst-think-tu-think-0-assistant-1")
+
+    // Each assistant segment contains only its thinking block
+    expect(
+      (result[0]?.raw as Record<string, unknown>).message
+    ).toMatchObject({
+      content: [{ type: "thinking", thinking: "first thought" }],
+    })
+    expect(
+      (result[2]?.raw as Record<string, unknown>).message
+    ).toMatchObject({
+      content: [{ type: "thinking", thinking: "second thought" }],
+    })
+  })
+
+  it("gracefully handles assistant with malformed raw.message (non-object)", () => {
+    const raw = {
+      uuid: "asst-bad-msg",
+      type: "assistant",
+      message: "not-an-object",
+    }
+    const result = normalizeRawSessionMessage(raw, 0, 0)
+
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({
+      kind: "assistant",
+      filterType: "assistant",
+    })
+  })
 })
 
 describe("getMessagePreview", () => {

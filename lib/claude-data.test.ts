@@ -620,7 +620,11 @@ describe("getSessionMessages with real Claude session files", () => {
       )
 
       expect(toolResultIdsInUserSlot.size).toBe(0)
-      expect(turns.some((turn) => turn.toolResults.length > 0)).toBe(true)
+      expect(
+        turns.some((turn) =>
+          turn.events.some((m) => m.kind === "tool-result")
+        )
+      ).toBe(true)
     }
   )
 

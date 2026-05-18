@@ -27,11 +27,10 @@ export const MessageStream = forwardRef<MessageStreamHandle, MessageStreamProps>
 
     useImperativeHandle(forwardedRef, () => ({
       scrollToMessage: (messageId: string) => {
-        // Find the turn containing this message
         const turnIndex = turns.findIndex(
           (turn) =>
             turn.user?.id === messageId ||
-            turn.assistant?.id === messageId ||
+            turn.events.some((msg) => msg.id === messageId) ||
             turn.metadata.some((msg) => msg.id === messageId)
         )
         if (turnIndex !== -1) {

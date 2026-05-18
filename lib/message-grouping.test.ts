@@ -1,9 +1,17 @@
 import { describe, it, expect } from "vitest"
-import { extractCompactMessages, extractCompactBoundaryMessages, extractMessageNavItems, extractUserTurnNavItems, groupMessagesIntoTurns, pairToolCalls } from "./message-grouping"
-import type { SessionMessage } from "@/types/claude"
+import {
+  extractCompactMessages,
+  extractCompactBoundaryMessages,
+  extractMessageNavItems,
+  extractUserTurnNavItems,
+  groupMessagesIntoTurns,
+  pairToolCalls,
+} from "./message-grouping"
+import { normalizeRawSessionMessage } from "./message-semantics"
+import type { SessionMessage, SessionMessageKind } from "@/types/claude"
 
 function withKind(message: Omit<SessionMessage, "kind" | "filterType">): SessionMessage {
-  const kind = message.type === "user"
+  const kind: SessionMessageKind = message.type === "user"
     ? "user"
     : message.type === "assistant"
       ? "assistant"
@@ -12,6 +20,53 @@ function withKind(message: Omit<SessionMessage, "kind" | "filterType">): Session
     ...message,
     kind,
     filterType: kind === "metadata" ? message.type : kind,
+  }
+}
+
+function makeToolCall(
+  id: string,
+  toolUseId: string,
+  timestamp: string
+): SessionMessage {
+  return {
+    id: `${id}-tool-call-0`,
+    type: "assistant",
+    kind: "tool-call",
+    filterType: "tool-call",
+    timestamp: new Date(timestamp),
+    parentUuid: null,
+    raw: {
+      message: {
+        role: "assistant",
+        content: [
+          { type: "tool_use", id: toolUseId, name: "Bash", input: {} },
+        ],
+      },
+    },
+  }
+}
+
+function makeToolResult(
+  id: string,
+  toolUseId: string,
+  timestamp: string,
+  content: unknown = "result"
+): SessionMessage {
+  return {
+    id: `${id}-tool-result-0`,
+    type: "user",
+    kind: "tool-result",
+    filterType: "tool-result",
+    timestamp: new Date(timestamp),
+    parentUuid: null,
+    raw: {
+      message: {
+        role: "user",
+        content: [
+          { type: "tool_result", tool_use_id: toolUseId, content },
+        ],
+      },
+    },
   }
 }
 
@@ -62,9 +117,6 @@ describe("extractCompactMessages", () => {
 
   it("includes correct turnIndex for each compact message", () => {
     const result = extractCompactMessages(mockMessages)
-    // Turns: [user+attachment+system, user+attachment]
-    // Turn 0: msg-1 (user), msg-2 (attach), msg-3 (system)
-    // Turn 1: msg-4 (user), msg-5 (attach)
     const attach1 = result.find((r: { messageId: string }) => r.messageId === "msg-2")
     const system = result.find((r: { messageId: string }) => r.messageId === "msg-3")
     const attach2 = result.find((r: { messageId: string }) => r.messageId === "msg-5")
@@ -238,7 +290,7 @@ describe("extractMessageNavItems", () => {
 })
 
 describe("groupMessagesIntoTurns", () => {
-  it("does not start a user turn for tool-result messages with raw user type", () => {
+  it("puts assistant, tool-call, and tool-result into events in source order", () => {
     const messages: SessionMessage[] = [
       withKind({
         id: "user-1",
@@ -252,105 +304,175 @@ describe("groupMessagesIntoTurns", () => {
         type: "assistant",
         timestamp: new Date("2024-01-01T00:00:01Z"),
         parentUuid: "user-1",
-        raw: {
-          message: {
-            role: "assistant",
-            content: [{ type: "tool_use", id: "tool-1", name: "DevTools", input: {} }],
-          },
-        },
+        raw: { message: { role: "assistant", content: [{ type: "text", text: "Sure" }] } },
       }),
-      {
-        id: "tool-result-1",
-        type: "user",
-        kind: "tool-result",
-        filterType: "tool-result",
-        timestamp: new Date("2024-01-01T00:00:02Z"),
-        parentUuid: "assistant-1",
-        raw: {
-          message: {
-            role: "user",
-            content: [{ type: "tool_result", tool_use_id: "tool-1", content: "Network.enable timed out" }],
-          },
-        },
-      },
+      makeToolCall("call-1", "tool-1", "2024-01-01T00:00:02Z"),
+      makeToolResult("result-1", "tool-1", "2024-01-01T00:00:03Z"),
     ]
 
     const turns = groupMessagesIntoTurns(messages)
 
     expect(turns).toHaveLength(1)
     expect(turns[0]?.user?.id).toBe("user-1")
-    expect(turns[0]?.toolResults.map((message) => message.id)).toEqual(["tool-result-1"])
+    expect(turns[0]?.events.map((m) => m.id)).toEqual([
+      "assistant-1",
+      "call-1-tool-call-0",
+      "result-1-tool-result-0",
+    ])
   })
 
   it("keeps leading tool-result messages out of user slots", () => {
     const messages: SessionMessage[] = [
-      {
-        id: "tool-result-1",
-        type: "user",
-        kind: "tool-result",
-        filterType: "tool-result",
-        timestamp: new Date("2024-01-01T00:00:00Z"),
-        parentUuid: null,
-        raw: {
-          message: {
-            role: "user",
-            content: [{ type: "tool_result", tool_use_id: "tool-1", content: "orphan" }],
-          },
-        },
-      },
+      makeToolResult("orphan-result", "tool-x", "2024-01-01T00:00:00Z", "orphan"),
     ]
 
     const turns = groupMessagesIntoTurns(messages)
 
     expect(turns).toHaveLength(1)
     expect(turns[0]?.user).toBeNull()
-    expect(turns[0]?.toolResults).toHaveLength(1)
+    expect(turns[0]?.events.map((m) => m.id)).toEqual(["orphan-result-tool-result-0"])
+  })
+
+  it("does not start a new turn for tool-call", () => {
+    const messages: SessionMessage[] = [
+      withKind({
+        id: "user-1",
+        type: "user",
+        timestamp: new Date("2024-01-01T00:00:00Z"),
+        parentUuid: null,
+        raw: { message: { role: "user", content: "Hi" } },
+      }),
+      makeToolCall("call-1", "tool-1", "2024-01-01T00:00:01Z"),
+      makeToolCall("call-2", "tool-2", "2024-01-01T00:00:02Z"),
+    ]
+
+    const turns = groupMessagesIntoTurns(messages)
+
+    expect(turns).toHaveLength(1)
+    expect(turns[0]?.events).toHaveLength(2)
+    expect(turns[0]?.events.map((m) => m.kind)).toEqual(["tool-call", "tool-call"])
+  })
+
+  it("groups normalized mixed-content assistant correctly", () => {
+    const normalized = normalizeRawSessionMessage(
+      {
+        uuid: "asst-mix",
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [
+            { type: "text", text: "Let me check" },
+            { type: "tool_use", id: "tool-1", name: "Read", input: {} },
+            { type: "text", text: "Now respond" },
+          ],
+        },
+      },
+      0,
+      0
+    )
+
+    const messages: SessionMessage[] = [
+      withKind({
+        id: "user-1",
+        type: "user",
+        timestamp: new Date("2024-01-01T00:00:00Z"),
+        parentUuid: null,
+        raw: { message: { role: "user", content: "Go" } },
+      }),
+      ...normalized,
+    ]
+
+    const turns = groupMessagesIntoTurns(messages)
+
+    expect(turns).toHaveLength(1)
+    expect(turns[0]?.events.map((m) => m.kind)).toEqual([
+      "assistant",
+      "tool-call",
+      "assistant",
+    ])
   })
 })
 
 describe("pairToolCalls", () => {
-  it("pairs by tool_use_id when available", () => {
-    const toolUses = [
-      { type: "tool_use", id: "call_1", name: "Bash", input: {} },
-      { type: "tool_use", id: "call_2", name: "Read", input: {} },
-    ]
-    const toolResults = [
-      { type: "tool_result", tool_use_id: "call_2", content: "read result" },
-      { type: "tool_result", tool_use_id: "call_1", content: "bash result" },
-    ]
-    const result = pairToolCalls(toolUses, toolResults)
-    expect(result).toHaveLength(2)
-    expect(result[0]?.toolUse.id).toBe("call_1")
-    expect(result[0]?.toolResult?.content).toBe("bash result")
-    expect(result[1]?.toolUse.id).toBe("call_2")
-    expect(result[1]?.toolResult?.content).toBe("read result")
+  it("pairs by tool_use.id ↔ tool_result.tool_use_id when ids exist", () => {
+    const callA = makeToolCall("call-a", "call_1", "2024-01-01T00:00:01Z")
+    const callB = makeToolCall("call-b", "call_2", "2024-01-01T00:00:02Z")
+    // Results arrive in reverse order — must still pair correctly by id
+    const resultB = makeToolResult("res-b", "call_2", "2024-01-01T00:00:03Z", "result for 2")
+    const resultA = makeToolResult("res-a", "call_1", "2024-01-01T00:00:04Z", "result for 1")
+
+    const { pairs } = pairToolCalls([callA, callB], [resultB, resultA])
+
+    expect(pairs.size).toBe(2)
+    expect(pairs.get("call-a-tool-call-0")?.id).toBe("res-a-tool-result-0")
+    expect(pairs.get("call-b-tool-call-0")?.id).toBe("res-b-tool-result-0")
   })
 
-  it("falls back to index-based matching when tool_use_id missing", () => {
-    const toolUses = [
-      { type: "tool_use", name: "Bash", input: {} },
-      { type: "tool_use", name: "Read", input: {} },
-    ]
-    const toolResults = [
-      { type: "tool_result", content: "bash result" },
-      { type: "tool_result", content: "read result" },
-    ]
-    const result = pairToolCalls(toolUses, toolResults)
-    expect(result).toHaveLength(2)
-    expect(result[0]?.toolResult?.content).toBe("bash result")
-    expect(result[1]?.toolResult?.content).toBe("read result")
+  it("falls back to positional pairing when tool_use_id absent", () => {
+    const callNoId: SessionMessage = {
+      id: "call-no-id-tool-call-0",
+      type: "assistant",
+      kind: "tool-call",
+      filterType: "tool-call",
+      timestamp: null,
+      parentUuid: null,
+      raw: {
+        message: {
+          role: "assistant",
+          content: [{ type: "tool_use", name: "Bash", input: {} }],
+        },
+      },
+    }
+    const resNoId: SessionMessage = {
+      id: "res-no-id-tool-result-0",
+      type: "user",
+      kind: "tool-result",
+      filterType: "tool-result",
+      timestamp: null,
+      parentUuid: null,
+      raw: {
+        message: {
+          role: "user",
+          content: [{ type: "tool_result", content: "out" }],
+        },
+      },
+    }
+
+    const { pairs } = pairToolCalls([callNoId], [resNoId])
+
+    expect(pairs.size).toBe(1)
+    expect(pairs.get("call-no-id-tool-call-0")?.id).toBe("res-no-id-tool-result-0")
   })
 
-  it("handles unmatched tool_use_id gracefully", () => {
-    const toolUses = [
-      { type: "tool_use", id: "call_1", name: "Bash", input: {} },
-    ]
-    const toolResults = [
-      { type: "tool_result", tool_use_id: "unknown", content: "orphan" },
-    ]
-    const result = pairToolCalls(toolUses, toolResults)
-    expect(result).toHaveLength(1)
-    expect(result[0]?.toolUse.id).toBe("call_1")
-    expect(result[0]?.toolResult).toBeUndefined()
+  it("omits unmatched tool-calls from the result map", () => {
+    const call = makeToolCall("call-1", "call_1", "2024-01-01T00:00:01Z")
+    const unrelated = makeToolResult("res-1", "different_id", "2024-01-01T00:00:02Z")
+
+    const { pairs } = pairToolCalls([call], [unrelated])
+
+    expect(pairs.size).toBe(0)
+    expect(pairs.has("call-1-tool-call-0")).toBe(false)
+  })
+
+  it("does not reuse a tool-result for multiple tool-calls", () => {
+    const callA = makeToolCall("call-a", "shared-id", "2024-01-01T00:00:01Z")
+    const callB = makeToolCall("call-b", "shared-id", "2024-01-01T00:00:02Z")
+    const result = makeToolResult("res-1", "shared-id", "2024-01-01T00:00:03Z")
+
+    const { pairs } = pairToolCalls([callA, callB], [result])
+
+    expect(pairs.get("call-a-tool-call-0")?.id).toBe("res-1-tool-result-0")
+    expect(pairs.has("call-b-tool-call-0")).toBe(false)
+  })
+
+  it("leaves tool-call orphan when tool_use.id mismatches tool_result.tool_use_id", () => {
+    const call = makeToolCall("call-1", "id-a", "2024-01-01T00:00:01Z")
+    const result = makeToolResult("res-1", "id-b", "2024-01-01T00:00:02Z")
+
+    const { pairs, consumedResultIds } = pairToolCalls([call], [result])
+
+    expect(pairs.size).toBe(0)
+    expect(pairs.has("call-1-tool-call-0")).toBe(false)
+    expect(consumedResultIds.size).toBe(0)
   })
 })
