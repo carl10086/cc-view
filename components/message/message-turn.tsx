@@ -5,31 +5,36 @@ import { AssistantMessage } from "./assistant-message"
 import { CompactMessage } from "./compact-message"
 import { ToolCallCard } from "./tool-call-card"
 import { ToolResultCard } from "./tool-result-card"
-import {
-  extractToolUses,
-  extractToolResults,
-  pairToolCalls,
-} from "@/lib/message-grouping"
-import type { MessageTurn } from "@/types/claude"
+import { pairToolCalls } from "@/lib/message-grouping"
+import type { MessageTurn, SessionMessage } from "@/types/claude"
 
 interface MessageTurnProps {
   turn: MessageTurn
   highlightedMessageId?: string | null
 }
 
+function getToolResultBlock(message: SessionMessage): Record<string, unknown> | undefined {
+  const raw = message.raw as Record<string, unknown> | undefined
+  const msg = raw?.message as Record<string, unknown> | undefined
+  const content = msg?.content
+  if (!Array.isArray(content)) return undefined
+  const blocks = content as Array<Record<string, unknown>>
+  const suffixMatch = message.id.match(/tool-result-(\d+)$/)
+  if (suffixMatch) {
+    const idx = parseInt(suffixMatch[1], 10)
+    const block = blocks[idx]
+    if (block?.type === "tool_result") return block
+  }
+  return blocks.find((b) => b.type === "tool_result")
+}
+
 export function MessageTurn({ turn, highlightedMessageId }: MessageTurnProps) {
-  const toolUses = turn.assistant ? extractToolUses(turn.assistant) : []
-  const toolResults = turn.toolResults.flatMap(extractToolResults)
-  const pairedTools = pairToolCalls(toolUses, toolResults)
-  const pairedToolResults = new Set(pairedTools.map((pair) => pair.toolResult).filter(Boolean))
-  const unpairedToolResults = toolResults.filter((result) => !pairedToolResults.has(result))
+  const toolCalls = turn.events.filter((m) => m.kind === "tool-call")
+  const toolResults = turn.events.filter((m) => m.kind === "tool-result")
+  const { pairs, consumedResultIds } = pairToolCalls(toolCalls, toolResults)
 
   const hasContent =
-    turn.user ||
-    turn.assistant ||
-    turn.metadata.length > 0 ||
-    pairedTools.length > 0 ||
-    unpairedToolResults.length > 0
+    turn.user || turn.events.length > 0 || turn.metadata.length > 0
 
   if (!hasContent) return null
 
@@ -59,31 +64,32 @@ export function MessageTurn({ turn, highlightedMessageId }: MessageTurnProps) {
         </div>
       )}
 
-      {/* Assistant message */}
-      {turn.assistant && <AssistantMessage message={turn.assistant} />}
-
-      {/* Tool calls */}
-      {pairedTools.length > 0 && (
+      {/* Events: assistant / tool-call / orphan tool-result, in source order */}
+      {turn.events.length > 0 && (
         <div className="space-y-1.5 border-t border-neutral-100 px-4 py-2 dark:border-neutral-800">
-          {pairedTools.map((pair, i) => (
-            <ToolCallCard
-              key={i}
-              toolUse={pair.toolUse}
-              toolResult={pair.toolResult}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Tool results without a matching visible tool_use */}
-      {unpairedToolResults.length > 0 && (
-        <div className="space-y-1.5 border-t border-neutral-100 px-4 py-2 dark:border-neutral-800">
-          {unpairedToolResults.map((toolResult, i) => (
-            <ToolResultCard
-              key={i}
-              toolResult={toolResult}
-            />
-          ))}
+          {turn.events.map((event) => {
+            if (event.kind === "assistant") {
+              return <AssistantMessage key={event.id} message={event} />
+            }
+            if (event.kind === "tool-call") {
+              const resultMessage = pairs.get(event.id)
+              return (
+                <ToolCallCard
+                  key={event.id}
+                  message={event}
+                  resultMessage={resultMessage}
+                  isHighlighted={event.id === highlightedMessageId}
+                />
+              )
+            }
+            if (event.kind === "tool-result") {
+              if (consumedResultIds.has(event.id)) return null
+              const block = getToolResultBlock(event)
+              if (!block) return null
+              return <ToolResultCard key={event.id} toolResult={block} />
+            }
+            return null
+          })}
         </div>
       )}
     </div>

@@ -91,3 +91,38 @@ describe("AssistantMessage Markdown Rendering", () => {
     expect(pre?.querySelector("code")).toBeTruthy()
   })
 })
+
+describe("AssistantMessage tool_use isolation", () => {
+  it("does not render tool name or input when raw content contains a tool_use block", () => {
+    const message: SessionMessage = {
+      id: "asst-with-tool-use",
+      type: "assistant",
+      kind: "assistant",
+      filterType: "assistant",
+      timestamp: new Date("2024-01-01T00:00:00Z"),
+      parentUuid: null,
+      raw: {
+        message: {
+          content: [
+            { type: "text", text: "I'll search the codebase." },
+            {
+              type: "tool_use",
+              id: "tool-1",
+              name: "SecretToolName_XYZ",
+              input: { secret_arg: "do-not-render-this" },
+            },
+          ],
+        },
+      },
+    }
+
+    const { container } = render(<AssistantMessage message={message} />)
+    const text = container.textContent ?? ""
+
+    // The text block must render
+    expect(text).toContain("I'll search the codebase.")
+    // The tool_use block must NOT render (tool name / input must not appear)
+    expect(text).not.toContain("SecretToolName_XYZ")
+    expect(text).not.toContain("do-not-render-this")
+  })
+})

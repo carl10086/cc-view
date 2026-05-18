@@ -174,6 +174,20 @@ export const mainMessageTypes: MessageTypeInfo[] = [
     },
   },
   {
+    filterType: "tool-call",
+    label: "tool-call",
+    color: "text-amber-700 dark:text-amber-300",
+    bgColor: "bg-amber-100 dark:bg-amber-900/40",
+    description:
+      "assistant 发起的工具调用，包含工具名称和输入参数。从 assistant 消息的 tool_use 块拆出，作为独立语义类型，可与同 turn 的 tool-result 按 tool_use_id 配对显示 Input 与 Result。示例 JSON 中的 type 为原始 API 字段名，内部语义 filterType 为 tool-call。",
+    exampleJson: {
+      type: "tool_use",
+      id: "tool_abc123",
+      name: "Bash",
+      input: { command: "ls -la" },
+    },
+  },
+  {
     filterType: "system",
     label: "system",
     color: "text-neutral-500",

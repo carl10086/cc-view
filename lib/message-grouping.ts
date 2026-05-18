@@ -1,5 +1,5 @@
 import type { SessionMessage, MessageTurn } from "@/types/claude"
-import { getMessagePreview } from "./message-semantics"
+import { getMessagePreview, asRecord } from "./message-semantics"
 
 export interface MessageNavItem {
   turnIndex: number
@@ -70,8 +70,8 @@ export function extractCompactBoundaryMessages(messages: SessionMessage[]): Comp
   for (let turnIndex = 0; turnIndex < turns.length; turnIndex++) {
     const turn = turns[turnIndex]
     for (const msg of turn.metadata) {
-      const raw = msg.raw as Record<string, unknown>
-      if (msg.type === "system" && raw.subtype === "compact_boundary") {
+      const raw = asRecord(msg.raw)
+      if (msg.type === "system" && raw?.subtype === "compact_boundary") {
         result.push({
           turnIndex,
           messageId: msg.id,
@@ -128,10 +128,9 @@ function getCompactPreview(message: SessionMessage): string {
  *
  * Rules:
  * - "user" kind starts a new turn
- * - "assistant" kind joins the current turn
- * - "tool-result" kind joins current turn's toolResults
- * - Metadata joins current turn's metadata if a turn is open;
- *   otherwise they become a standalone turn
+ * - "assistant" | "tool-call" | "tool-result" kinds append to current turn's events
+ *   (preserving source order); when no turn is open, a standalone turn is created
+ * - "metadata" joins current turn's metadata (or a standalone metadata turn)
  */
 export function groupMessagesIntoTurns(messages: SessionMessage[]): MessageTurn[] {
   const turns: MessageTurn[] = []
@@ -139,44 +138,29 @@ export function groupMessagesIntoTurns(messages: SessionMessage[]): MessageTurn[
 
   for (const message of messages) {
     if (message.kind === "user") {
-      // Close previous turn if exists
       if (current) {
         turns.push(current)
       }
-      // Start new turn with this user message
       current = createTurn(message.id, { user: message })
-    } else if (message.kind === "assistant") {
+    } else if (
+      message.kind === "assistant" ||
+      message.kind === "tool-call" ||
+      message.kind === "tool-result"
+    ) {
       if (current) {
-        // If current turn already has an assistant, close it and start new turn
-        // (handles edge case of consecutive assistants)
-        if (current.assistant) {
-          turns.push(current)
-          current = createTurn(message.id, { assistant: message })
-        } else {
-          current.assistant = message
-        }
+        current.events.push(message)
       } else {
-        // Assistant without preceding user → standalone turn
-        current = createTurn(message.id, { assistant: message })
-      }
-    } else if (message.kind === "tool-result") {
-      if (current) {
-        current.toolResults.push(message)
-      } else {
-        turns.push(createTurn(message.id, { toolResults: [message] }))
+        current = createTurn(message.id, { events: [message] })
       }
     } else {
-      // Compact/metadata messages
       if (current) {
         current.metadata.push(message)
       } else {
-        // No open turn → standalone metadata turn
         turns.push(createTurn(message.id, { metadata: [message] }))
       }
     }
   }
 
-  // Don't forget the last open turn
   if (current) {
     turns.push(current)
   }
@@ -191,70 +175,76 @@ function createTurn(
   return {
     id,
     user: null,
-    assistant: null,
-    toolResults: [],
+    events: [],
     metadata: [],
     ...fields,
   }
 }
 
-/**
- * Extract tool_use blocks from an assistant message's content.
- */
-export function extractToolUses(
-  message: SessionMessage
-): Array<Record<string, unknown>> {
-  if (message.type !== "assistant") return []
-
-  const raw = message.raw as Record<string, unknown>
-  const msg = raw.message as Record<string, unknown> | undefined
-  const content = (msg?.content ?? []) as Array<Record<string, unknown>>
-
-  return content.filter((c) => c.type === "tool_use")
-}
-
-/**
- * Extract tool_result blocks from a user message's content.
- */
-export function extractToolResults(
-  message: SessionMessage
-): Array<Record<string, unknown>> {
-  if (message.type !== "user") return []
-
-  const raw = message.raw as Record<string, unknown>
-  const msg = raw.message as Record<string, unknown> | undefined
+function getToolUseIdFromCallMessage(message: SessionMessage): string | undefined {
+  const match = message.id.match(/tool-call-(\d+)$/)
+  if (!match) return undefined
+  const index = parseInt(match[1], 10)
+  const raw = asRecord(message.raw)
+  const msg = asRecord(raw?.message)
   const content = msg?.content
+  if (!Array.isArray(content) || index < 0 || index >= content.length) return undefined
+  const block = asRecord(content[index])
+  return typeof block?.id === "string" ? block.id : undefined
+}
 
-  if (typeof content === "string") return []
-  if (!Array.isArray(content)) return []
-
-  return content.filter((c: Record<string, unknown>) => c.type === "tool_result")
+function getToolUseIdFromResultMessage(message: SessionMessage): string | undefined {
+  const match = message.id.match(/tool-result-(\d+)$/)
+  if (!match) return undefined
+  const index = parseInt(match[1], 10)
+  const raw = asRecord(message.raw)
+  const msg = asRecord(raw?.message)
+  const content = msg?.content
+  if (!Array.isArray(content) || index < 0 || index >= content.length) return undefined
+  const block = asRecord(content[index])
+  return typeof block?.tool_use_id === "string" ? block.tool_use_id : undefined
 }
 
 /**
- * Pair tool_use blocks with corresponding tool_result blocks by tool_use_id.
- * Falls back to index-based matching if tool_use_id is not available.
+ * Pair tool-call SessionMessages with their corresponding tool-result SessionMessages.
+ *
+ * Matching strategy:
+ * - If the tool-call has an underlying `tool_use.id`, match strictly by id; no fallback.
+ *   This avoids accidentally pairing a tool-call whose result is genuinely missing
+ *   with an unrelated tool-result.
+ * - If the tool-call has no `tool_use.id` (unusual), fall back to positional matching.
+ *
+ * Returns an object containing:
+ * - `pairs`: Map keyed by the tool-call SessionMessage.id, valued by the paired
+ *   tool-result SessionMessage. Unmatched tool-calls are absent.
+ * - `consumedResultIds`: Set of tool-result SessionMessage.id that have been paired.
  */
 export function pairToolCalls(
-  toolUses: Array<Record<string, unknown>>,
-  toolResults: Array<Record<string, unknown>>
-): Array<{
-  toolUse: Record<string, unknown>
-  toolResult?: Record<string, unknown>
-}> {
-  return toolUses.map((toolUse, index) => {
-    const toolUseId = toolUse.id as string | undefined
-    if (toolUseId) {
-      const matched = toolResults.find(
-        (tr) => tr.tool_use_id === toolUseId
-      )
-      if (matched) {
-        return { toolUse, toolResult: matched }
+  toolCalls: SessionMessage[],
+  toolResults: SessionMessage[]
+): { pairs: Map<string, SessionMessage>; consumedResultIds: Set<string> } {
+  const pairs = new Map<string, SessionMessage>()
+  const consumedResultIds = new Set<string>()
+
+  toolCalls.forEach((call, index) => {
+    const callToolUseId = getToolUseIdFromCallMessage(call)
+    if (callToolUseId !== undefined) {
+      const match = toolResults.find((r) => {
+        if (consumedResultIds.has(r.id)) return false
+        return getToolUseIdFromResultMessage(r) === callToolUseId
+      })
+      if (match) {
+        pairs.set(call.id, match)
+        consumedResultIds.add(match.id)
       }
-      // tool_use has id but no matching tool_use_id found
-      return { toolUse, toolResult: undefined }
+      return
     }
-    // Fallback to index-based matching when no tool_use id
-    return { toolUse, toolResult: toolResults[index] }
+    const fallback = toolResults[index]
+    if (fallback && !consumedResultIds.has(fallback.id)) {
+      pairs.set(call.id, fallback)
+      consumedResultIds.add(fallback.id)
+    }
   })
+
+  return { pairs, consumedResultIds }
 }

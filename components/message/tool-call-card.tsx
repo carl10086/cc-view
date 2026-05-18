@@ -4,15 +4,51 @@ import { useState } from "react"
 import { ChevronDown, ChevronUp, Wrench, Clock } from "lucide-react"
 import { JsonTree } from "./json-tree"
 import { cn } from "@/lib/utils"
+import type { SessionMessage } from "@/types/claude"
 
 interface ToolCallCardProps {
-  toolUse: Record<string, unknown>
-  toolResult?: Record<string, unknown>
+  message: SessionMessage
+  resultMessage?: SessionMessage
   isHighlighted?: boolean
 }
 
-export function ToolCallCard({ toolUse, toolResult, isHighlighted }: ToolCallCardProps) {
+function getContentBlocks(message: SessionMessage): Array<Record<string, unknown>> {
+  const raw = message.raw as Record<string, unknown> | undefined
+  const msg = raw?.message as Record<string, unknown> | undefined
+  const content = msg?.content
+  return Array.isArray(content) ? (content as Array<Record<string, unknown>>) : []
+}
+
+function getContentIndexFromSuffix(messageId: string, suffix: string): number | null {
+  const escaped = suffix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const re = new RegExp(`${escaped}-(\\d+)$`)
+  const match = messageId.match(re)
+  if (!match) return null
+  const idx = parseInt(match[1], 10)
+  return Number.isNaN(idx) ? null : idx
+}
+
+function getToolUseBlock(message: SessionMessage): Record<string, unknown> | undefined {
+  const blocks = getContentBlocks(message)
+  const index = getContentIndexFromSuffix(message.id, "tool-call")
+  if (index === null) return undefined
+  const block = blocks[index]
+  return block?.type === "tool_use" ? block : undefined
+}
+
+function getToolResultBlock(message: SessionMessage): Record<string, unknown> | undefined {
+  const blocks = getContentBlocks(message)
+  const index = getContentIndexFromSuffix(message.id, "tool-result")
+  if (index === null) return undefined
+  const block = blocks[index]
+  return block?.type === "tool_result" ? block : undefined
+}
+
+export function ToolCallCard({ message, resultMessage, isHighlighted }: ToolCallCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+
+  const toolUse = getToolUseBlock(message) ?? {}
+  const toolResult = resultMessage ? getToolResultBlock(resultMessage) : undefined
 
   const toolName = String(toolUse.name ?? "unknown")
   const toolInput = toolUse.input ?? {}
@@ -61,7 +97,7 @@ export function ToolCallCard({ toolUse, toolResult, isHighlighted }: ToolCallCar
           </div>
 
           {/* Result */}
-          {hasResult ? (
+          {hasResult && toolResult ? (
             <div>
               <span className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-amber-600 dark:text-amber-400">
                 Result
@@ -81,7 +117,6 @@ export function ToolCallCard({ toolUse, toolResult, isHighlighted }: ToolCallCar
 }
 
 function ToolResultContent({ result }: { result: Record<string, unknown> }) {
-  // Handle different result formats
   const content = result.content
 
   if (typeof content === "string") {
@@ -96,6 +131,5 @@ function ToolResultContent({ result }: { result: Record<string, unknown> }) {
     return <JsonTree data={content} defaultCollapsed={1} />
   }
 
-  // Fallback: show the whole result object
   return <JsonTree data={result} defaultCollapsed={1} />
 }
